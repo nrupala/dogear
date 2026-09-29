@@ -1,4 +1,4 @@
-/* dogear reader v1.0.3 — Document in, place kept, resume anywhere.
+/* dogear reader v1.0.4 — Document in, place kept, resume anywhere.
    Owned by Nrupal Akolkar · Built with Muse by Meta · https://getdogear.app
    Self-contained embed: drop this file in a <script> tag (or inline it), then put
    <div data-dogear></div> where the reader should mount. Optional attributes:
@@ -181,7 +181,7 @@ function init(mount){
   function arm(){
     disarm();
     keepAlive=setInterval(function(){
-      try{if(state==='playing'&&!synth.paused)synth.resume();}catch(e){}
+      try{if(state==='playing')synth.resume();}catch(e){}
     },8000);
   }
   function speak(i,g){

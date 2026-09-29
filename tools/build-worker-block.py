@@ -21,7 +21,7 @@ def main() -> None:
     js_literal = json.dumps(src, ensure_ascii=True)
     fn = (
         "function dogearBlock(){\n"
-        "  // DogEar reader v1.0.3 — generated from nrupala/dogear reader/dogear.js; do not hand-edit.\n"
+        "  // DogEar reader v1.0.4 — generated from nrupala/dogear reader/dogear.js; do not hand-edit.\n"
         "  return '<div data-dogear></div>'\n"
         "  + '<scr'+'ipt>'\n"
         "  + " + js_literal + "\n"

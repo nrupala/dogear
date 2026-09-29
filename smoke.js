@@ -152,6 +152,10 @@ global.localStorage = {
 };
 global.navigator = {};
 global.NodeFilter = { SHOW_TEXT: 4 };
+// capture the keepalive tick instead of starting a real timer
+let keepAliveTick = null;
+global.setInterval = (fn) => { keepAliveTick = fn; return 1; };
+global.clearInterval = () => { keepAliveTick = null; };
 const utterances = [];
 global.SpeechSynthesisUtterance = function (t) { this.text = t; this.rate = 1; this.voice = null; utterances.push(this); };
 
@@ -204,6 +208,21 @@ cancelled = false; // doPlay's own pre-cancel is expected; clear before the hide
 document.hidden = true;
 listeners['visibilitychange']();
 ok(cancelled === false, 'hidden does not cancel speech');
+
+// return to the tab: the keepalive re-arms (and only resets if audio truly died)
+document.hidden = false;
+listeners['visibilitychange']();
+ok(typeof keepAliveTick === 'function', 'keepalive re-arms on return to tab');
+
+// keepalive must nudge a stuck-paused synth back awake while playing (v1.0.4:
+// the tick used to skip resume() exactly when paused, its only useful case)
+synthStub.speaking = false;
+synthStub.paused = true; // Android-style stall: OS suspended the utterance mid-play
+let resumed = false;
+const origResume = synthStub.resume;
+synthStub.resume = () => { resumed = true; origResume(); };
+keepAliveTick();
+ok(resumed === true && synthStub.paused === false, 'keepalive resumes a stuck-paused synth while playing');
 
 console.log(failures === 0 ? '\nALL SMOKE TESTS PASSED' : '\n' + failures + ' FAILURES');
 process.exit(failures === 0 ? 0 : 1);
