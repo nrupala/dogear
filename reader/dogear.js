@@ -58,9 +58,9 @@ function boot(){
   Array.prototype.forEach.call(mounts,function(m){init(m);});
 }
 /* Boot contract (v1.0.5): NEVER initialize while the document is still parsing.
-   An inline <script> executes synchronously, so readable content placed after
+   An inline script tag executes synchronously, so readable content placed after
    the embed in the HTML would otherwise be invisible to the reader — this is
-   the same family as the onsmartgrid </script> incident, the getdogear
+   the same family as the onsmartgrid script-close incident, the getdogear
    below-mount truncation, and the worker article pages that only ever wrapped
    the headline. Deferring to DOMContentLoaded makes the reader independent of
    embed placement: no per-site script moves, one invariant for every site. */
