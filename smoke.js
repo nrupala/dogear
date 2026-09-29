@@ -224,5 +224,111 @@ synthStub.resume = () => { resumed = true; origResume(); };
 keepAliveTick();
 ok(resumed === true && synthStub.paused === false, 'keepalive resumes a stuck-paused synth while playing');
 
+/* v1.0.5 parser-order regression: the boot contract.
+   The reader must NEVER initialize while document.readyState==='loading'.
+   Scenario: the embed <script> runs synchronously mid-parse — the mount div
+   exists (dogearBlock emits it just before the script) but the article body
+   has not been parsed yet. The reader must defer to DOMContentLoaded and then
+   see the late content. This is the same family as the onsmartgrid </script>
+   incident and the worker pages that only ever wrapped the headline. */
+(function deferredBootRegression(){
+  const spansB = [];
+  const spokenB = [];
+  const listenersB = {};
+  const storeB = {};
+  function seedB(el, v) {
+    const tn = textNode(v); tn.parentNode = el; tn.parentElement = el; return tn;
+  }
+  const h1B = makeEl('h1', 'Late headline here.');
+  h1B.children = [seedB(h1B, h1B.textContent)];
+  const artB = makeEl('article', '');
+  artB.children = [h1B]; h1B.parentNode = artB;
+  artB.querySelectorAll = function (sel) {
+    if (sel === 'h1,h2,p,li') return artB.children.filter(c => ['h1', 'h2', 'p', 'li'].indexOf(c.tag) >= 0);
+    return [];
+  };
+  const playB = { textContent: '', _handlers: {}, addEventListener(e, h) { this._handlers[e] = h; },
+    setAttribute() {}, click() { this._handlers.click(); } };
+  const stopB = { disabled: true, _handlers: {}, addEventListener(e, h) { this._handlers[e] = h; }, setAttribute() {} };
+  const rateB = { value: '1', _handlers: {}, addEventListener(e, h) { this._handlers[e] = h; } };
+  const fillB = { style: {} };
+  const mountB = {
+    _attrs: { 'data-dogear': '', 'data-dogear-exclude': '.dg,.hex' },
+    className: '', style: {}, innerHTML: '',
+    classList: { add(c) { mountB.className += ' ' + c; } },
+    getAttribute(k) { return this._attrs[k] || null; },
+    querySelector(sel) {
+      return { '.dg-play': playB, '.dg-stop': stopB, '.dg-speed': rateB, '.dg-fill': fillB }[sel] || null;
+    },
+  };
+  const synthB = {
+    speaking: false, paused: false,
+    getVoices() { return [{ name: 'Google US English', lang: 'en-US' }]; },
+    speak(u) { spokenB.push(u.text); synthB.speaking = true; },
+    cancel() { synthB.speaking = false; },
+    pause() { synthB.paused = true; },
+    resume() { synthB.paused = false; },
+    onvoiceschanged: null,
+  };
+  const docB = {
+    readyState: 'loading', // the parser is still running when the script executes
+    querySelector(sel) {
+      if (sel === '[data-dogear]') return mountB;
+      if (sel === 'article') return artB;
+      if (sel === 'style[data-dogear-css]') return null;
+      return null;
+    },
+    querySelectorAll(sel) { return sel === '[data-dogear]' ? [mountB] : []; },
+    createElement(tag) {
+      if (tag === 'style') return { setAttribute() {}, textContent: '' };
+      if (tag === 'span') { const s = makeEl('span', ''); spansB.push(s); return s; }
+      return makeEl(tag, '');
+    },
+    createTextNode(v) { return textNode(v); },
+    createDocumentFragment() { return { _frag: [], appendChild(c) { this._frag.push(c); return c; } }; },
+    createTreeWalker(root) {
+      const nodes = [];
+      (function walk(e) { (e.children || []).forEach(c => { if (c.nodeType === 3) nodes.push(c); else walk(c); }); })(root);
+      let i = 0;
+      return { nextNode() { return i < nodes.length ? nodes[i++] : null; } };
+    },
+    head: { appendChild() {} },
+    hidden: false,
+    addEventListener(e, h) { listenersB[e] = h; },
+  };
+  const saveDoc = global.document, saveWin = global.window,
+        saveLoc = global.location, saveLS = global.localStorage;
+  global.document = docB;
+  global.window = { speechSynthesis: synthB };
+  global.location = { pathname: '/p/deferred-test' };
+  global.localStorage = {
+    getItem(k) { return storeB[k] || null; },
+    setItem(k, v) { storeB[k] = String(v); },
+    removeItem(k) { delete storeB[k]; },
+  };
+  eval(src);
+  ok(typeof listenersB['DOMContentLoaded'] === 'function', 'deferred: DOMContentLoaded listener registered while loading');
+  ok(!mountB.className.includes('dg'), 'deferred: no init while document is still parsing');
+  ok(spansB.length === 0, 'deferred: no sentences wrapped before DOMContentLoaded');
+  // the parser continues past the <script>: body paragraphs (and excluded hex) appear
+  const pB = makeEl('p', '');
+  const hexB = makeEl('span', '', 'hex');
+  const hexTB = seedB(hexB, '#FEDCBA ');
+  hexB.children = [hexTB]; hexB.parentNode = pB; hexB.parentElement = pB;
+  pB.children = [seedB(pB, 'Body paragraph one. '), hexB, seedB(pB, 'It has two sentences.')];
+  pB.textContent = 'Body paragraph one. #FEDCBA It has two sentences.';
+  pB.parentNode = artB; artB.children.push(pB);
+  if (typeof listenersB['DOMContentLoaded'] === 'function') listenersB['DOMContentLoaded'](); // parsing finished -> boot runs
+  ok(mountB.className.includes('dg'), 'deferred: init runs on DOMContentLoaded');
+  ok(spansB.length === 3, 'deferred: late-parsed content is wrapped (' + spansB.length + ' spans)');
+  ok(spansB.every(s => s.textContent.indexOf('#FEDCBA') < 0), 'deferred: excluded hex never wrapped');
+  playB.click();
+  ok(spokenB.length === 1 && spokenB[0].indexOf('Late headline here.') === 0,
+     'deferred: play speaks first chunk: ' + JSON.stringify(spokenB[0] || '').slice(0, 40));
+  ok(playB.textContent === '\u23F8 Pause', 'deferred: label switches to Pause while playing');
+  global.document = saveDoc; global.window = saveWin;
+  global.location = saveLoc; global.localStorage = saveLS;
+})();
+
 console.log(failures === 0 ? '\nALL SMOKE TESTS PASSED' : '\n' + failures + ' FAILURES');
 process.exit(failures === 0 ? 0 : 1);

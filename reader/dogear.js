@@ -1,4 +1,4 @@
-/* dogear reader v1.0.4 — Document in, place kept, resume anywhere.
+/* dogear reader v1.0.5 — Document in, place kept, resume anywhere.
    Owned by Nrupal Akolkar · Built with Muse by Meta · https://getdogear.app
    Self-contained embed: drop this file in a <script> tag (or inline it), then put
    <div data-dogear></div> where the reader should mount. Optional attributes:
@@ -46,16 +46,29 @@ var ROW=
 +'<div class="dg-sub"><span>document in, place kept, resume anywhere</span>'
 +'<a href="'+HOME+'" target="_blank" rel="noopener">getdogear.app</a></div>';
 
-if(!document.querySelector('[data-dogear]'))return;
-if(!document.querySelector('style[data-dogear-css]')){
-  var st=document.createElement('style');
-  st.setAttribute('data-dogear-css','1');
-  st.textContent=CSS;
-  document.head.appendChild(st);
+function boot(){
+  if(!document.querySelector('[data-dogear]'))return;
+  if(!document.querySelector('style[data-dogear-css]')){
+    var st=document.createElement('style');
+    st.setAttribute('data-dogear-css','1');
+    st.textContent=CSS;
+    document.head.appendChild(st);
+  }
+  var mounts=document.querySelectorAll('[data-dogear]');
+  Array.prototype.forEach.call(mounts,function(m){init(m);});
 }
-
-var mounts=document.querySelectorAll('[data-dogear]');
-Array.prototype.forEach.call(mounts,function(m){init(m);});
+/* Boot contract (v1.0.5): NEVER initialize while the document is still parsing.
+   An inline <script> executes synchronously, so readable content placed after
+   the embed in the HTML would otherwise be invisible to the reader — this is
+   the same family as the onsmartgrid </script> incident, the getdogear
+   below-mount truncation, and the worker article pages that only ever wrapped
+   the headline. Deferring to DOMContentLoaded makes the reader independent of
+   embed placement: no per-site script moves, one invariant for every site. */
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',boot);
+}else{
+  boot();
+}
 
 function init(mount){
   var scopeEl=mount.getAttribute('data-dogear-scope');
