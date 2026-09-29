@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="matrix">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dogear — document in, place kept, resume anywhere</title>
+<meta name="description" content="dogear is a read-aloud reader that remembers where you stopped. Deep-listening Ether skin, tuned for the parasympathetic nervous system. Web app and browser extensions coming soon.">
+<meta name="theme-color" content="#000000">
+<script>
+/* apply the saved skin before first paint — matrix is home, ether is the deep-listening mode */
+(function(){try{var t=localStorage.getItem("dg-theme");if(t==="ether"||t==="matrix"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}})();
+</script>
+<style>
+  :root, html[data-theme="matrix"] {
+    color-scheme: dark;
+    --bg: #000;
+    --ink: #d7ffe0;
+    --h1: #eafff1;
+    --h1-glow: 0 0 6px rgba(190,255,210,.95), 0 0 22px rgba(0,255,140,.75), 0 0 70px rgba(0,255,140,.45), 0 0 140px rgba(0,220,255,.25);
+    --tag: #b9ffd2;
+    --tag-b: #ffffff;
+    --chip-ink: #8dffb9;
+    --chip-bg: rgba(0,60,30,.35);
+    --chip-border: rgba(0,255,150,.45);
+    --sites: rgba(160,255,190,.6);
+    --sites-b: rgba(220,255,230,.9);
+    --footer: rgba(140,220,170,.5);
+    --deep: rgba(0,255,106,.045);
+    --mascot-ink: #ffffff;
+    --ring: rgba(0,255,150,.55);
+    --ring-glow: rgba(0,255,150,.28);
+    --crt-vig: rgba(0,0,0,.55);
+    --crt-lines: rgba(0,0,0,.16);
+    --rain-head: #8dffb9;
+    --rain-tail: rgba(0,200,90,.55);
+    --rain-fade: rgba(0,0,0,.08);
+    --breath: 3.6s;
+    --wave: #8dffb9;
+    --wave-glow: rgba(0,255,150,.5);
+    --card-bg: rgba(10,15,12,.72);
+    --sw-label: rgba(160,255,190,.75);
+  }
+  /* ETHER — the deep-listening skin. Vishuddha (throat chakra) meets the vagus nerve:
+     deep indigo/teal nightfall backgrounds lower cortisol and ocular load; aquamarine
+     and cyan carry the vibrating energy of sound; type stays soft off-white so nothing
+     halates. The whole page breathes at a coherent 5.5s rhythm. */
+  html[data-theme="ether"] {
+    color-scheme: dark;
+    --bg: #060b1e;
+    --ink: #e9f2f1;
+    --h1: #f4fbfa;
+    --h1-glow: 0 0 6px rgba(210,255,250,.9), 0 0 24px rgba(111,242,220,.7), 0 0 70px rgba(87,230,255,.4), 0 0 140px rgba(87,160,255,.22);
+    --tag: #bcdad6;
+    --tag-b: #f4fbfa;
+    --chip-ink: #6ff2dc;
+    --chip-bg: rgba(6,42,46,.42);
+    --chip-border: rgba(111,242,220,.45);
+    --sites: rgba(170,210,205,.62);
+    --sites-b: rgba(233,242,241,.92);
+    --footer: rgba(150,200,195,.5);
+    --deep: rgba(111,242,220,.05);
+    --mascot-ink: #ffffff;
+    --ring: rgba(111,242,220,.55);
+    --ring-glow: rgba(111,242,220,.28);
+    --crt-vig: rgba(2,6,20,.6);
+    --crt-lines: rgba(0,20,30,.16);
+    --rain-head: #6ff2dc;
+    --rain-tail: rgba(87,230,255,.5);
+    --rain-fade: rgba(6,11,30,.08);
+    --breath: 5.5s;
+    --wave: #6ff2dc;
+    --wave-glow: rgba(111,242,220,.55);
+    --card-bg: rgba(8,19,34,.72);
+    --sw-label: rgba(170,210,205,.75);
+    /* the reader chrome, re-skinned through its --dg-* tokens */
+    --dg-accent: #6ff2dc;
+    --dg-ink: #e9f2f1;
+    --dg-dim: rgba(190,225,220,.55);
+    --dg-bg: #081322;
+    --dg-ring: rgba(111,242,220,.4);
+    --dg-glow: rgba(111,242,220,.12);
+    --dg-track: rgba(111,242,220,.15);
+    --dg-hi: rgba(111,242,220,.14);
+    --dg-play-ink: #042a28;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { min-height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+    display: flex; flex-direction: column; align-items: center;
+    transition: background .6s ease, color .6s ease;
+  }
+  /* ether wash: the indigo-to-teal nightfall gradient, crossfaded in */
+  .wash {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0;
+    background:
+      radial-gradient(ellipse 90% 60% at 50% 0%, rgba(20,40,110,.5), transparent 70%),
+      linear-gradient(180deg, #060b1e 0%, #062227 100%);
+    transition: opacity .8s ease;
+  }
+  html[data-theme="ether"] .wash { opacity: 1; }
+  /* layer 1: deep kanji watermark */
+  .deep {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 42vmin; color: var(--deep); user-select: none; pointer-events: none;
+    z-index: 0; letter-spacing: 0.1em;
+  }
+  /* layer 2: digital rain */
+  canvas#rain { position: fixed; inset: 0; z-index: 1; opacity: 0.55; pointer-events: none; }
+  /* layer 4: CRT vignette + scanlines */
+  .crt {
+    position: fixed; inset: 0; z-index: 3; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 55%, var(--crt-vig) 100%);
+  }
+  .crt::after {
+    content: ""; position: absolute; inset: 0;
+    background: repeating-linear-gradient(0deg, var(--crt-lines) 0 1px, transparent 1px 3px);
+  }
+  /* skin toggle */
+  .skin-toggle {
+    position: fixed; top: 1rem; right: 1rem; z-index: 5;
+    font: inherit; font-size: .75rem; letter-spacing: .1em;
+    color: var(--chip-ink); background: var(--chip-bg);
+    border: 1px solid var(--chip-border); border-radius: 999px;
+    padding: .5rem 1rem; cursor: pointer;
+    box-shadow: 0 0 14px var(--ring-glow);
+  }
+  /* hero */
+  .hero {
+    position: relative; z-index: 2; text-align: center; padding: 2rem;
+    max-width: 46rem; min-height: 100svh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  /* MASCOT: our own original pup — white Lab on dark themes, black Lab on light.
+     Two stacked frames (eyes open / mid-blink) crossfade on a random blink loop;
+     the ring breathes — 3.6s in matrix, 5.5s coherent breathing in ether.
+     Reader states (.is-listening/.is-reading/.is-paused) hook in here when the
+     app/extensions wire them up. */
+  .mascot {
+    width: 148px; height: 148px; margin: 0 auto 1.75rem; border-radius: 50%;
+    position: relative;
+    border: 2px solid var(--ring);
+    box-shadow: 0 0 28px var(--ring-glow);
+    animation: breathe var(--breath) ease-in-out infinite;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 35%, var(--ring-glow), transparent 70%);
+  }
+  .mascot .pup {
+    position: absolute; inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px);
+    object-fit: cover; border-radius: 50%;
+  }
+  .mascot .pup-blink { opacity: 0; transition: opacity 70ms linear; }
+  .mascot.blinking .pup-blink { opacity: 1; }
+  @keyframes breathe {
+    0%, 100% { box-shadow: 0 0 22px var(--ring-glow); transform: translateY(0); }
+    50% { box-shadow: 0 0 38px var(--ring-glow); transform: translateY(-4px); }
+  }
+  h1 {
+    font-size: clamp(3rem, 12vw, 6.5rem); font-weight: 800; letter-spacing: -0.03em;
+    color: var(--h1);
+    text-shadow: var(--h1-glow);
+    animation: flicker 4.2s infinite;
+  }
+  h1 .tail { color: var(--chip-ink); }
+  @keyframes flicker {
+    0%, 100% { opacity: 1; } 92% { opacity: 1; }
+    93% { opacity: 0.72; } 94% { opacity: 1; } 96% { opacity: 0.85; } 97% { opacity: 1; }
+  }
+  html[data-theme="ether"] h1 { animation: etherglow 5.5s ease-in-out infinite; }
+  @keyframes etherglow {
+    0%, 100% { opacity: .96; } 50% { opacity: 1; }
+  }
+  .tag {
+    margin-top: 1.1rem; font-size: clamp(0.95rem, 2.6vw, 1.2rem); line-height: 1.65;
+    color: var(--tag); text-shadow: 0 0 12px var(--ring-glow);
+  }
+  .tag b { color: var(--tag-b); }
+  .chips { margin-top: 2rem; display: flex; gap: 0.7rem; justify-content: center; flex-wrap: wrap; }
+  .chip {
+    font-size: 0.8rem; letter-spacing: 0.08em; padding: 0.5rem 1rem;
+    border: 1px solid var(--chip-border); border-radius: 999px;
+    color: var(--chip-ink); background: var(--chip-bg);
+    box-shadow: 0 0 14px var(--ring-glow);
+  }
+  .sites { margin-top: 2.2rem; font-size: 0.82rem; color: var(--sites); line-height: 1.8; }
+  .sites b { color: var(--sites-b); }
+  .scroll-hint { margin-top: 2.4rem; font-size: .72rem; letter-spacing: .2em; color: var(--sites); opacity: .7; }
+  /* sections */
+  section {
+    position: relative; z-index: 2; width: 100%; max-width: 46rem;
+    padding: 2rem; margin: 0 auto;
+  }
+  section h2 {
+    font-size: 1.05rem; letter-spacing: .14em; color: var(--chip-ink);
+    text-shadow: 0 0 12px var(--ring-glow); margin-bottom: 1rem;
+  }
+  section p.lede { font-size: .88rem; line-height: 1.7; color: var(--tag); margin-bottom: 1.4rem; }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--chip-border); border-radius: 14px;
+    box-shadow: 0 0 24px var(--ring-glow);
+    padding: 1.4rem;
+    backdrop-filter: blur(2px);
+  }
+  canvas#breath { display: block; width: 100%; height: 92px; margin-bottom: .6rem; }
+  #demo-text p { font-size: .9rem; line-height: 1.8; color: var(--ink); margin-bottom: .9rem; }
+  #demo-text p:last-child { margin-bottom: 0; }
+  /* the palette — the app skin, documented as tokens */
+  .swatches { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: .7rem; }
+  .sw {
+    border: 1px solid var(--chip-border); border-radius: 10px; overflow: hidden;
+    background: var(--card-bg);
+  }
+  .sw .c { height: 3.2rem; }
+  .sw .m { padding: .55rem .7rem; font-size: .68rem; line-height: 1.6; color: var(--sw-label); }
+  .sw .m b { display: block; color: var(--ink); font-size: .72rem; letter-spacing: .06em; }
+  .sw .m code { color: var(--chip-ink); }
+  footer {
+    position: relative; z-index: 2; width: 100%; text-align: center;
+    font-size: 0.72rem; color: var(--footer); letter-spacing: 0.06em;
+    padding: 3rem 1rem 1.4rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    canvas#rain { display: none; }
+    h1, .mascot { animation: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="wash" aria-hidden="true"></div>
+  <div class="deep">&#32819;&#35501;</div>
+  <canvas id="rain" aria-hidden="true"></canvas>
+  <div class="crt" aria-hidden="true"></div>
+
+  <button class="skin-toggle" id="skinToggle" type="button" aria-label="Toggle deep-listening skin">◐ ether mode</button>
+
+  <header class="hero">
+    <div class="mascot" id="mascot" role="img" aria-label="dogear mascot — a Labrador pup" title="dogear mascot">
+      <img class="pup pup-open" id="pupOpen" src="pup-white-open.png" alt="" aria-hidden="true">
+      <img class="pup pup-blink" id="pupBlink" src="pup-white-blink.png" alt="" aria-hidden="true">
+    </div>
+    <h1>dog<span class="tail">ear</span></h1>
+    <p class="tag"><b>Document in, place kept, resume anywhere.</b><br>A read-aloud reader that remembers where you stopped — across your devices.</p>
+    <div class="chips">
+      <span class="chip">WEB APP</span>
+      <span class="chip">CHROME + EDGE</span>
+      <span class="chip">FIREFOX</span>
+    </div>
+    <p class="sites"><b>Already reading on our sites</b> — the dogear reader is built into every article,<br>so the sites promote dogear just by being read.</p>
+    <p class="scroll-hint">SCROLL · DEEP LISTENING BELOW</p>
+  </header>
+
+  <section id="listen">
+    <h2>DEEP LISTENING, LIVE</h2>
+    <p class="lede">This is the dogear app skin — <b>Ether mode</b>, tuned for the throat chakra and the parasympathetic nervous system. Deep indigo nightfall, aquamarine sound-energy, type that never glares. Press play: the waveform below breathes at a coherent 5.5-second rhythm while the reader keeps your place.</p>
+    <div class="card">
+      <canvas id="breath" aria-hidden="true"></canvas>
+      <div id="demo-text">
+        <p>Listening is a different kind of reading. The eyes rest, the shoulders drop, and the mind follows the voice instead of chasing the line. Dogear is built for that shift — from visual fatigue to auditory absorption.</p>
+        <p>Your place is kept per page, on this device, with no account and no tracking. Leave mid-paragraph and come back tomorrow: the reader offers your exact spot, down to the sentence, and resumes where your attention left off.</p>
+      </div>
+      <div data-dogear data-dogear-scope="#demo-text" data-dogear-select="p"></div>
+      <script src="dogear.js"></script>
+    </div>
+  </section>
+
+  <section id="palette">
+    <h2>THE ETHER PALETTE — OUR APP SKIN</h2>
+    <p class="lede">Six tokens, one nervous system. Dark backgrounds mimic nightfall and lower cortisol; cyan-family accents carry the expressive energy of sound; nothing on screen ever glares.</p>
+    <div class="swatches">
+      <div class="sw"><div class="c" style="background:#060b1e"></div><div class="m"><b>DEEP INDIGO</b><code>#060B1E</code><br>vagus-nerve nightfall — the resting background</div></div>
+      <div class="sw"><div class="c" style="background:#062a2e"></div><div class="m"><b>DARK TEAL</b><code>#062A2E</code><br>rest-and-digest depth — the gradient floor</div></div>
+      <div class="sw"><div class="c" style="background:#6ff2dc"></div><div class="m"><b>AQUAMARINE</b><code>#6FF2DC</code><br>throat-chakra core — play, voice, listening glow</div></div>
+      <div class="sw"><div class="c" style="background:#57e6ff"></div><div class="m"><b>CYAN</b><code>#57E6FF</code><br>expressive energy — waveform crests, highlights</div></div>
+      <div class="sw"><div class="c" style="background:#e9f2f1"></div><div class="m"><b>SOFT OFF-WHITE</b><code>#E9F2F1</code><br>type that never halates — no pure white</div></div>
+      <div class="sw"><div class="c" style="background:#a9c3c9"></div><div class="m"><b>PALE BLUE-GRAY</b><code>#A9C3C9</code><br>quiet secondary text — dimmed, never dimmed-out</div></div>
+    </div>
+  </section>
+
+  <footer>Owned by Nrupal Akolkar &middot; Built with Muse by Meta</footer>
+
+<script>
+/* skin toggle: matrix ⇄ ether, remembered per device */
+(function () {
+  var btn = document.getElementById("skinToggle");
+  function current() { return document.documentElement.getAttribute("data-theme") || "matrix"; }
+  function paint() { btn.textContent = current() === "ether" ? "◑ matrix mode" : "◐ ether mode"; }
+  btn.addEventListener("click", function () {
+    var next = current() === "ether" ? "matrix" : "ether";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("dg-theme", next); } catch (e) {}
+    paint();
+  });
+  paint();
+})();
+</script>
+<script>
+/* The pup lives: white Lab on dark themes, black Lab on light; blinks on its own. */
+(function () {
+  var mascot = document.getElementById("mascot");
+  var open = document.getElementById("pupOpen");
+  var blink = document.getElementById("pupBlink");
+  function applyTheme() {
+    var fur = "white"; /* both skins are dark; the pup stays our white Lab */
+    open.src = "pup-" + fur + "-open.png";
+    blink.src = "pup-" + fur + "-blink.png";
+  }
+  applyTheme();
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  (function blinkLoop() {
+    setTimeout(function () {
+      mascot.classList.add("blinking");
+      setTimeout(function () { mascot.classList.remove("blinking"); }, 150);
+      blinkLoop();
+    }, 2600 + Math.random() * 3200);
+  })();
+})();
+</script>
+<script>
+/* digital rain — glyphs tinted per skin */
+(function () {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  var c = document.getElementById("rain"), x = c.getContext("2d");
+  var glyphs = "ﾊﾐﾋｰｳｼﾅﾓﾆｻﾜﾂｵﾘｱﾎﾃ0123456789";
+  var fs = 15, cols, drops;
+  function palette() {
+    var s = getComputedStyle(document.documentElement);
+    return {
+      head: s.getPropertyValue("--rain-head").trim() || "#8dffb9",
+      tail: s.getPropertyValue("--rain-tail").trim() || "rgba(0,200,90,.55)",
+      fade: s.getPropertyValue("--rain-fade").trim() || "rgba(0,0,0,.08)"
+    };
+  }
+  var pal = palette();
+  function size() {
+    c.width = innerWidth; c.height = innerHeight;
+    cols = Math.ceil(c.width / fs);
+    drops = Array.from({ length: cols }, () => Math.random() * -60);
+  }
+  size(); addEventListener("resize", size);
+  new MutationObserver(function () { pal = palette(); })
+    .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  (function tick() {
+    x.fillStyle = pal.fade; x.fillRect(0, 0, c.width, c.height);
+    x.font = fs + "px monospace";
+    for (var i = 0; i < cols; i++) {
+      var g = glyphs[(Math.random() * glyphs.length) | 0];
+      var head = drops[i] * fs < c.height * 0.85;
+      x.fillStyle = head ? pal.head : pal.tail;
+      x.fillText(g, i * fs, drops[i] * fs);
+      if (drops[i] * fs > c.height && Math.random() > 0.976) drops[i] = 0;
+      drops[i]++;
+    }
+    requestAnimationFrame(tick);
+  })();
+})();
+</script>
+<script>
+/* the breath waveform — a fluid wave swelling and settling on a coherent 5.5s cycle,
+   the visual of the HAM mantra: sound made visible, nervous system made calm */
+(function () {
+  var c = document.getElementById("breath"), x = c.getContext("2d");
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function waveColor() {
+    var s = getComputedStyle(document.documentElement);
+    return {
+      line: s.getPropertyValue("--wave").trim() || "#8dffb9",
+      glow: s.getPropertyValue("--wave-glow").trim() || "rgba(0,255,150,.5)"
+    };
+  }
+  var col = waveColor();
+  new MutationObserver(function () { col = waveColor(); })
+    .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  function size() {
+    var r = c.getBoundingClientRect();
+    c.width = Math.max(1, Math.floor(r.width * devicePixelRatio));
+    c.height = Math.max(1, Math.floor(92 * devicePixelRatio));
+  }
+  size(); addEventListener("resize", size);
+  function draw(t) {
+    var W = c.width, H = c.height, mid = H / 2;
+    x.clearRect(0, 0, W, H);
+    var breath = reduce ? 0.8 : 0.55 + 0.45 * Math.sin((t / 1000) * (Math.PI * 2 / 5.5) - Math.PI / 2);
+    var amp = H * 0.34 * breath;
+    x.beginPath();
+    for (var px = 0; px <= W; px += 4) {
+      var u = px / W;
+      var env = Math.sin(Math.PI * u); /* taper at the edges */
+      var y = mid
+        + Math.sin(u * Math.PI * 6 + t / 900) * amp * env
+        + Math.sin(u * Math.PI * 11 - t / 1400) * amp * 0.35 * env;
+      if (px === 0) x.moveTo(px, y); else x.lineTo(px, y);
+    }
+    x.strokeStyle = col.line; x.lineWidth = 2 * devicePixelRatio;
+    x.shadowColor = col.glow; x.shadowBlur = 12 * devicePixelRatio;
+    x.stroke();
+    x.shadowBlur = 0;
+  }
+  if (reduce) { draw(1800); return; }
+  (function tick(t) { draw(t); requestAnimationFrame(tick); })(0);
+})();
+</script>
+</body>
+</html>
