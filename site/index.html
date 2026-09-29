@@ -264,7 +264,7 @@
 
   <section id="listen">
     <h2>DEEP LISTENING, LIVE</h2>
-    <p class="lede">This is the dogear app skin — <b>Ether mode</b>, tuned for the throat chakra and the parasympathetic nervous system. Deep indigo nightfall, aquamarine sound-energy, type that never glares. Press play: the waveform below breathes at a coherent 5.5-second rhythm while the reader keeps your place.</p>
+    <p class="lede" id="demoLede">This is the dogear app skin — <b>Ether mode</b>, tuned for the throat chakra and the parasympathetic nervous system. Deep indigo nightfall, aquamarine sound-energy, type that never glares. Press play: the waveform below breathes at a coherent 5.5-second rhythm while the reader keeps your place.</p>
     <div class="card">
       <canvas id="breath" aria-hidden="true"></canvas>
       <div id="demo-text">
@@ -295,8 +295,17 @@
 /* skin toggle: matrix ⇄ ether, remembered per device */
 (function () {
   var btn = document.getElementById("skinToggle");
+  var lede = document.getElementById("demoLede");
+  var LEDE = {
+    ether: "This is the dogear app skin — <b>Ether mode</b>, tuned for the throat chakra and the parasympathetic nervous system. Deep indigo nightfall, aquamarine sound-energy, type that never glares. Press play: the waveform below breathes at a coherent 5.5-second rhythm while the reader keeps your place.",
+    matrix: "This is the dogear brand skin — <b>Matrix mode</b>, phosphor green on black, the terminal aesthetic the brand was born in. Press play: the waveform below breathes at a coherent 5.5-second rhythm while the reader keeps your place."
+  };
   function current() { return document.documentElement.getAttribute("data-theme") || "matrix"; }
-  function paint() { btn.textContent = current() === "ether" ? "◑ matrix mode" : "◐ ether mode"; }
+  function paint() {
+    var skin = current();
+    btn.textContent = skin === "ether" ? "◑ matrix mode" : "◐ ether mode";
+    if (lede) lede.innerHTML = LEDE[skin];
+  }
   btn.addEventListener("click", function () {
     var next = current() === "ether" ? "matrix" : "ether";
     document.documentElement.setAttribute("data-theme", next);
