@@ -9,7 +9,7 @@ function ok(cond, name) {
 }
 
 // ---- text nodes / elements ----
-function textNode(v) { return { nodeType: 3, nodeValue: v, parentNode: null }; }
+function textNode(v) { return { nodeType: 3, nodeValue: v, parentNode: null, parentElement: null }; }
 function makeEl(tag, text, cls) {
   const el = {
     tag, className: cls || '', textContent: text,
@@ -58,10 +58,20 @@ const spans = [];
 const p1 = makeEl('p', 'First sentence here. Second sentence follows!');
 const p2 = makeEl('p', 'A much longer paragraph with several sentences. It keeps going. And going. Done.');
 // seed text nodes
-[p1, p2].forEach(p => {
-  const tn = textNode(p.textContent);
-  tn.parentNode = p; p.children = [tn];
-});
+function seedText(el, v) {
+  const tn = textNode(v);
+  tn.parentNode = el; tn.parentElement = el;
+  return tn;
+}
+p1.children = [seedText(p1, p1.textContent)];
+// p2 carries a nested excluded .hex span (hex must never be spoken)
+const hexSpan = makeEl('span', '', 'hex');
+const hexText = seedText(hexSpan, '#ABCDEF ');
+hexSpan.children = [hexText];
+hexSpan.parentNode = p2;
+p2.children = [seedText(p2, 'A much longer paragraph with several sentences. '), hexSpan,
+               seedText(p2, 'It keeps going. And going. Done.')];
+p2.textContent = 'A much longer paragraph with several sentences. #ABCDEF It keeps going. And going. Done.';
 const scope = makeEl('article', '');
 scope.children = [p1, p2]; p1.parentNode = scope; p2.parentNode = scope;
 scope.querySelectorAll = function (sel) {
@@ -83,7 +93,7 @@ const synthStub = {
 };
 
 const mount = {
-  _attrs: { 'data-dogear': '' },
+  _attrs: { 'data-dogear': '', 'data-dogear-exclude': '.dg,.hex' },
   className: '',
   style: {},
   innerHTML: '',
@@ -124,7 +134,7 @@ global.document = {
   createDocumentFragment() { return { _frag: [], appendChild(c) { this._frag.push(c); return c; } }; },
   createTreeWalker(root) {
     const nodes = [];
-    (function walk(e) { (e.children || []).forEach(c => { if (c.nodeType === 3) nodes.push(c); }); })(root);
+    (function walk(e) { (e.children || []).forEach(c => { if (c.nodeType === 3) nodes.push(c); else walk(c); }); })(root);
     let i = 0;
     return { nextNode() { return i < nodes.length ? nodes[i++] : null; } };
   },
@@ -154,6 +164,10 @@ ok(playBtn.textContent === '\u25B6 dogear', 'idle label is "▶ dogear", got: ' 
 
 // sentence wrapping happened: spans created
 ok(spans.length >= 6, 'sentences wrapped in spans (' + spans.length + ')');
+
+// excluded descendants are never spoken: the .hex span's text must not even be wrapped
+ok(spans.every(s => !s.textContent.includes('#ABCDEF')), 'nested excluded .hex text is never wrapped/spoken');
+ok(spans.length === 6, 'sentence count unchanged by exclusion (' + spans.length + ')');
 
 // click play -> speaks first chunk
 playBtn.click();

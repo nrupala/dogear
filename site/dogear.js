@@ -1,4 +1,4 @@
-/* dogear reader v1.0.2 — Document in, place kept, resume anywhere.
+/* dogear reader v1.0.3 — Document in, place kept, resume anywhere.
    Owned by Nrupal Akolkar · Built with Muse by Meta · https://getdogear.app
    Self-contained embed: drop this file in a <script> tag (or inline it), then put
    <div data-dogear></div> where the reader should mount. Optional attributes:
@@ -82,7 +82,10 @@ function init(mount){
   blocks.forEach(function(el){
     var walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,null,false);
     var nodes=[],n;
-    while((n=walker.nextNode())){if(n.nodeValue.replace(/\s+/g,''))nodes.push(n);}
+    while((n=walker.nextNode())){
+      if(n.parentElement&&n.parentElement.closest(excl))continue; /* skip text inside excluded descendants */
+      if(n.nodeValue.replace(/\s+/g,''))nodes.push(n);
+    }
     nodes.forEach(function(tn){
       var parts=tn.nodeValue.split(/(?<=[.!?])\s+/);
       var frag=document.createDocumentFragment();
