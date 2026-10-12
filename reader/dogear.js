@@ -1,5 +1,5 @@
 /* dogear reader v1.0.5 — Document in, place kept, resume anywhere.
-   Owned by Nrupal Akolkar · Built with Muse by Meta · https://getdogear.app
+   Owned by Nrupal Akolkar (https://nrupalakolkar.com) · Built with Muse by Meta (https://muse.ai/join) · https://getdogear.app — join Muse, then redeem code 101EEK in Settings within 48 hours of joining and we both earn tokens.
    Self-contained embed: drop this file in a <script> tag (or inline it), then put
    <div data-dogear></div> where the reader should mount. Optional attributes:
      data-dogear-scope   CSS selector for the readable region (default: article)
