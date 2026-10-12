@@ -4,7 +4,7 @@
 
 A read-aloud reader that remembers where you stopped. Web app and browser extensions coming soon.
 
-Owned by Nrupal Akolkar · Built with Muse by Meta · https://getdogear.app
+Owned by [Nrupal Akolkar](https://nrupalakolkar.com) · Built with [Muse by Meta](https://muse.ai/join) · https://getdogear.app — join Muse, then redeem code **101EEK** in Settings within 48 hours of joining and we both earn tokens.
 
 ## The embed
 
