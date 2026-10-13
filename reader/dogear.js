@@ -1,4 +1,4 @@
-/* dogear reader v1.0.5 — Document in, place kept, resume anywhere.
+/* dogear reader v1.0.6 — Document in, place kept, resume anywhere.
    Owned by Nrupal Akolkar (https://nrupalakolkar.com) · Built with Muse by Meta (https://muse.ai/join) · https://getdogear.app — join Muse, then redeem code 101EEK in Settings within 48 hours of joining and we both earn tokens.
    Self-contained embed: drop this file in a <script> tag (or inline it), then put
    <div data-dogear></div> where the reader should mount. Optional attributes:
@@ -215,6 +215,12 @@ function init(mount){
     };
     u.onerror=function(){
       if(g!==gen||state!=='playing')return;
+      /* Phone app-switch (v1.0.6): the OS kills the utterance mid-chunk.
+         Advancing on error cascades chunk-to-chunk until speak() runs past
+         the end and finish() CLEARS the saved place — the reader then
+         restarted from the top. On a hidden page an error means suspended,
+         not failed: keep the place at the current chunk and stop here. */
+      if(document.hidden){savePlace(idx);gen++;disarm();state='idle';setPlay();return;}
       speak(i+1,g);
     };
     try{synth.speak(u);}catch(e){if(g===gen&&state==='playing')speak(i+1,g);}
