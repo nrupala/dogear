@@ -224,6 +224,21 @@ synthStub.resume = () => { resumed = true; origResume(); };
 keepAliveTick();
 ok(resumed === true && synthStub.paused === false, 'keepalive resumes a stuck-paused synth while playing');
 
+// v1.0.6: an utterance error on a hidden page (phone app-switch kills speech)
+// must keep the place and stop — never cascade to finish() and wipe it.
+document.hidden = true;
+const spokenBeforeErr = spoken.length;
+utterances[utterances.length - 1].onerror();
+ok(spoken.length === spokenBeforeErr, 'hidden error: no cascade into further chunks');
+ok(store['dogear:place:/p/test-article'] !== undefined &&
+   JSON.parse(store['dogear:place:/p/test-article']).i === 1, 'hidden error: place kept at chunk 1');
+ok(playBtn.textContent === '\u25B6 Resume \u00B7 17%', 'hidden error: button offers Resume \u00B7 17%: ' + JSON.stringify(playBtn.textContent));
+utterances[utterances.length - 1].onerror();
+ok(spoken.length === spokenBeforeErr, 'hidden error: stale error event is a no-op');
+document.hidden = false;
+playBtn.click();
+ok(spoken.length === spokenBeforeErr + 1 && playBtn.textContent === '\u23F8 Pause', 'hidden error: play resumes from kept place');
+
 /* v1.0.5 parser-order regression: the boot contract.
    The reader must NEVER initialize while document.readyState==='loading'.
    Scenario: the embed <script> runs synchronously mid-parse — the mount div
