@@ -1,4 +1,4 @@
-/* dogear reader v1.0.6 — Document in, place kept, resume anywhere.
+/* dogear reader v1.0.7 — Document in, place kept, resume anywhere.
    Owned by Nrupal Akolkar (https://nrupalakolkar.com) · Built with Muse by Meta (https://muse.ai/join) · https://getdogear.app — join Muse, then redeem code 101EEK in Settings within 48 hours of joining and we both earn tokens.
    Self-contained embed: drop this file in a <script> tag (or inline it), then put
    <div data-dogear></div> where the reader should mount. Optional attributes:
@@ -88,6 +88,33 @@ function init(mount){
   Array.prototype.forEach.call(scope.querySelectorAll(select),function(el){
     if(el.closest(excl))return;
     if(el.textContent.replace(/\s+/g,''))blocks.push(el);
+  });
+  /* Orphan-text fallback (v1.0.7): some article bodies are stored as bare
+     text inside a container — no <p>/<h2>/<li> markup at all. The block
+     selector then matches only the headline and dek, and everything below
+     the player is silently skipped (TWF "Navigating the Gig Economy and
+     Taxes", found 2026-10-13: 3 spans total, body invisible to the reader).
+     A container holding real direct text and NO selected block inside it
+     is itself a block; only the outermost such container is taken, so its
+     text is walked once, in order. Markup-rich pages are unaffected: their
+     containers hold selected blocks and are never re-read. */
+  var orphans=[];
+  Array.prototype.forEach.call(scope.querySelectorAll('div,section,blockquote,td,dd,dt,figcaption'),function(el){
+    if(el.closest(excl))return;
+    if(el.querySelector(select))return;
+    var direct=false;
+    Array.prototype.forEach.call(el.childNodes,function(n){
+      if(n.nodeType===3&&n.nodeValue.replace(/\s+/g,''))direct=true;
+    });
+    if(direct)orphans.push(el);
+  });
+  orphans=orphans.filter(function(el){
+    return !orphans.some(function(o){return o!==el&&o.contains(el);});
+  });
+  blocks=blocks.concat(orphans);
+  blocks.sort(function(a,b){
+    var r=a.compareDocumentPosition(b);
+    return (r&2)?1:((r&4)?-1:0);
   });
 
   /* split into sentences, wrap for highlight */

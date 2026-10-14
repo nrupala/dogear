@@ -10,10 +10,14 @@ function ok(cond, name) {
 
 // ---- text nodes / elements ----
 function textNode(v) { return { nodeType: 3, nodeValue: v, parentNode: null, parentElement: null }; }
+let elOrd = 0;
 function makeEl(tag, text, cls) {
   const el = {
-    tag, className: cls || '', textContent: text,
+    tag, className: cls || '', textContent: text, _ord: elOrd++,
     children: [], parentNode: null,
+    get childNodes() { return el.children; },
+    contains(o) { let p = o; while (p) { if (p === el) return true; p = p.parentNode; } return false; },
+    compareDocumentPosition(o) { return el._ord < o._ord ? 4 : 2; }, // 4=FOLLOWING (o after el), 2=PRECEDING
     classList: {
       add(c) { el.className += ' ' + c; },
       remove(c) { el.className = el.className.replace(new RegExp('\\b' + c + '\\b'), '').trim(); },
@@ -341,6 +345,105 @@ ok(spoken.length === spokenBeforeErr + 1 && playBtn.textContent === '\u23F8 Paus
   ok(spokenB.length === 1 && spokenB[0].indexOf('Late headline here.') === 0,
      'deferred: play speaks first chunk: ' + JSON.stringify(spokenB[0] || '').slice(0, 40));
   ok(playB.textContent === '\u23F8 Pause', 'deferred: label switches to Pause while playing');
+  global.document = saveDoc; global.window = saveWin;
+  global.location = saveLoc; global.localStorage = saveLS;
+})();
+
+/* v1.0.7 orphan-text regression: an article body stored as BARE TEXT inside
+   a container (no <p>/<h2>/<li> markup — TWF "Navigating the Gig Economy and
+   Taxes") must still be read. Before the fallback, the block selector matched
+   only the h1 and the dek: 2 spans, body silently skipped. */
+(function orphanTextRegression(){
+  const spansC = [];
+  const spokenC = [];
+  const listenersC = {};
+  const storeC = {};
+  function seedC(el, v) {
+    const tn = textNode(v); tn.parentNode = el; tn.parentElement = el; return tn;
+  }
+  const h1C = makeEl('h1', 'Gig Style Headline.');
+  h1C.children = [seedC(h1C, h1C.textContent)];
+  const dekC = makeEl('p', 'A dek sentence here.', 'dek');
+  dekC.children = [seedC(dekC, dekC.textContent)];
+  const bodyC = makeEl('div', 'Raw body sentence one is here. Raw body sentence two follows.', 'post-body');
+  bodyC.children = [seedC(bodyC, 'Raw body sentence one is here. '), seedC(bodyC, 'Raw body sentence two follows.')];
+  const artC = makeEl('article', '');
+  artC.children = [h1C, dekC, bodyC];
+  h1C.parentNode = artC; dekC.parentNode = artC; bodyC.parentNode = artC;
+  artC.querySelectorAll = function (sel) {
+    if (sel === 'h1,h2,p,li') return [h1C, dekC];
+    if (sel === 'div,section,blockquote,td,dd,dt,figcaption') return [bodyC];
+    return [];
+  };
+  const playC = { textContent: '', _handlers: {}, addEventListener(e, h) { this._handlers[e] = h; },
+    setAttribute() {}, click() { this._handlers.click(); } };
+  const stopC = { disabled: true, _handlers: {}, addEventListener(e, h) { this._handlers[e] = h; }, setAttribute() {} };
+  const rateC = { value: '1', _handlers: {}, addEventListener(e, h) { this._handlers[e] = h; } };
+  const fillC = { style: {} };
+  const mountC = {
+    _attrs: { 'data-dogear': '' },
+    className: '', style: {}, innerHTML: '',
+    classList: { add(c) { mountC.className += ' ' + c; } },
+    getAttribute(k) { return this._attrs[k] || null; },
+    querySelector(sel) {
+      return { '.dg-play': playC, '.dg-stop': stopC, '.dg-speed': rateC, '.dg-fill': fillC }[sel] || null;
+    },
+  };
+  const synthC = {
+    speaking: false, paused: false,
+    getVoices() { return [{ name: 'Google US English', lang: 'en-US' }]; },
+    speak(u) { spokenC.push(u.text); synthC.speaking = true; },
+    cancel() { synthC.speaking = false; },
+    pause() { synthC.paused = true; },
+    resume() { synthC.paused = false; },
+    onvoiceschanged: null,
+  };
+  const docC = {
+    readyState: 'complete',
+    querySelector(sel) {
+      if (sel === '[data-dogear]') return mountC;
+      if (sel === 'article') return artC;
+      if (sel === 'style[data-dogear-css]') return null;
+      return null;
+    },
+    querySelectorAll(sel) { return sel === '[data-dogear]' ? [mountC] : []; },
+    createElement(tag) {
+      if (tag === 'style') return { setAttribute() {}, textContent: '' };
+      if (tag === 'span') { const s = makeEl('span', ''); spansC.push(s); return s; }
+      return makeEl(tag, '');
+    },
+    createTextNode(v) { return textNode(v); },
+    createDocumentFragment() { return { _frag: [], appendChild(c) { this._frag.push(c); return c; } }; },
+    createTreeWalker(root) {
+      const nodes = [];
+      (function walk(e) { (e.children || []).forEach(c => { if (c.nodeType === 3) nodes.push(c); else walk(c); }); })(root);
+      let i = 0;
+      return { nextNode() { return i < nodes.length ? nodes[i++] : null; } };
+    },
+    head: { appendChild() {} },
+    hidden: false,
+    addEventListener(e, h) { listenersC[e] = h; },
+  };
+  const saveDoc = global.document, saveWin = global.window,
+        saveLoc = global.location, saveLS = global.localStorage;
+  global.document = docC;
+  global.window = { speechSynthesis: synthC };
+  global.location = { pathname: '/p/gig-style-article' };
+  global.localStorage = {
+    getItem(k) { return storeC[k] || null; },
+    setItem(k, v) { storeC[k] = String(v); },
+    removeItem(k) { delete storeC[k]; },
+  };
+  eval(src);
+  ok(mountC.className.includes('dg'), 'orphan: reader initializes on bare-text article');
+  ok(spansC.length === 4, 'orphan: bare-text body wrapped (' + spansC.length + ' spans, want 4)');
+  ok(spansC.some(s => s.textContent.indexOf('Raw body sentence one') >= 0), 'orphan: first body sentence wrapped');
+  ok(spansC.some(s => s.textContent.indexOf('Raw body sentence two') >= 0), 'orphan: second body sentence wrapped');
+  playC.click();
+  for (let k = 0; k < 6 && spokenC.join(' ').indexOf('Raw body sentence two follows') < 0; k++) {
+    utterances[utterances.length - 1].onend(); // drive the chunk chain forward
+  }
+  ok(spokenC.join(' ').indexOf('Raw body sentence two follows') >= 0, 'orphan: play reaches the bare-text body');
   global.document = saveDoc; global.window = saveWin;
   global.location = saveLoc; global.localStorage = saveLS;
 })();
