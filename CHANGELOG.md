@@ -5,6 +5,9 @@ All notable changes to dogear are documented here, in
 
 ## [Unreleased]
 
+- Licensed under AGPL-3.0 (portfolio license policy, owner decision 2026-10-11); canonical license text added as `LICENSE`.
+
+
 ### Added
 - `CONTRIBUTING.md`: PR-flow discipline (draft PR → tests green → owner
   merges; no direct pushes to `main`; merge commits reference PR numbers;
