@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>dogear — document in, place kept, resume anywhere</title>
-<meta name="description" content="dogear is a read-aloud reader that remembers where you stopped. Deep-listening Ether skin, tuned for the parasympathetic nervous system. Web app and browser extensions coming soon.">
+<title>dogear — document in, place kept</title>
+<meta name="description" content="dogear is a read-aloud reader that remembers where you stopped. The web app is live and free — no account, and your documents stay on your device. Browser extensions are planned.">
 <meta name="theme-color" content="#000000">
 <script>
 /* apply the saved skin before first paint — matrix is home, ether is the deep-listening mode */
@@ -188,6 +188,15 @@
   }
   .tag b { color: var(--tag-b); }
   .chips { margin-top: 2rem; display: flex; gap: 0.7rem; justify-content: center; flex-wrap: wrap; }
+  a.chip { text-decoration: none; }
+  a.chip:hover { filter: brightness(1.25); }
+  .app-cta {
+    display: inline-block; font-size: 1rem; font-weight: 700; letter-spacing: .04em;
+    color: #042a28; background: var(--chip-ink); text-decoration: none;
+    border-radius: 999px; padding: .8rem 1.7rem;
+    box-shadow: 0 0 22px var(--ring-glow);
+  }
+  .app-cta:hover { filter: brightness(1.08); }
   .chip {
     font-size: 0.8rem; letter-spacing: 0.08em; padding: 0.5rem 1rem;
     border: 1px solid var(--chip-border); border-radius: 999px;
@@ -252,11 +261,12 @@
       <img class="pup pup-blink" id="pupBlink" src="pup-white-blink.png" alt="" aria-hidden="true">
     </div>
     <h1>dog<span class="tail">ear</span></h1>
-    <p class="tag"><b>Document in, place kept, resume anywhere.</b><br>A read-aloud reader that remembers where you stopped — across your devices.</p>
+    <p class="tag"><b>Document in, place kept.</b><br>A read-aloud reader that remembers where you stopped — on the device you were using. No account, so nothing follows you between devices.</p>
+    <p style="margin-top:1.6rem"><a class="app-cta" href="https://app.getdogear.app">Open the app — it&rsquo;s free</a></p>
     <div class="chips">
-      <span class="chip">WEB APP</span>
-      <span class="chip">CHROME + EDGE</span>
-      <span class="chip">FIREFOX</span>
+      <a class="chip" href="https://app.getdogear.app">WEB APP — LIVE</a>
+      <span class="chip">CHROME + EDGE — PLANNED</span>
+      <span class="chip">FIREFOX — PLANNED</span>
     </div>
     <p class="sites"><b>Already reading on our sites</b> — the dogear reader is built into every article,<br>so the sites promote dogear just by being read.</p>
     <p class="scroll-hint">SCROLL · DEEP LISTENING BELOW</p>
@@ -270,7 +280,7 @@
       <canvas id="breath" aria-hidden="true"></canvas>
       <div id="demo-text">
         <p>Listening is a different kind of reading. The eyes rest, the shoulders drop, and the mind follows the voice instead of chasing the line. Dogear is built for that shift — from visual fatigue to auditory absorption.</p>
-        <p>Your place is kept per page, on this device, with no account and no tracking. Leave mid-paragraph and come back tomorrow: the reader offers your exact spot, down to the sentence, and resumes where your attention left off.</p>
+        <p>Your place is kept per page, on this device, with no account. The reader itself collects nothing about you. This page is counted with Cloudflare Web Analytics — a visit counter, no ad tracking and no cross-site profiles. Leave mid-paragraph and come back tomorrow: the reader offers your exact spot, down to the sentence, and resumes where your attention left off.</p>
       </div>
       <div data-dogear data-dogear-scope="#readable" data-dogear-select="h2,p,.sw .m" data-dogear-exclude=".dg,.sw code"></div>
       <script src="dogear.js"></script>
