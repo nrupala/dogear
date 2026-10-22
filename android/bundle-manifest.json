@@ -151,8 +151,8 @@
       "route": "/releases",
       "asset": "releases.html",
       "type": "text/html; charset=utf-8",
-      "bytes": 7717,
-      "sha256": "56adfc0daff2bb43c2dc3a190fa1b32e68b361419c5586ed76d832f314a0b8aa",
+      "bytes": 7825,
+      "sha256": "4614de76aefd747be73d6e1bd2f6fe8733055b58b77cbd10f0621706e4585865",
       "source": "src/releases.html"
     },
     {
@@ -372,5 +372,5 @@
       "source": "pack/v1/runtime/transformers.js"
     }
   ],
-  "total_bytes": 116932575
+  "total_bytes": 116932683
 }
