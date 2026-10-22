@@ -151,7 +151,6 @@ public class SpeechService extends Service {
     // Lifecycle
     // ------------------------------------------------------------------
 
-    @Override
     // The running instance, for the JS bridge's direct-call path.
     // Chunk traffic must NOT go through startService intents: once
     // the app is backgrounded (the entire point of this service),
@@ -164,6 +163,7 @@ public class SpeechService extends Service {
 
     public static SpeechService active() { return activeInstance; }
 
+    @Override
     public void onCreate() {
         super.onCreate();
         activeInstance = this;
@@ -243,7 +243,6 @@ public class SpeechService extends Service {
         });
     }
 
-    @Override
     // ------------------------------------------------------------------
     // Instance entry points (JS bridge direct calls + intent handling
     // share these). Work is posted to the main looper so bridge calls
@@ -320,6 +319,7 @@ public class SpeechService extends Service {
         refreshUi();
     }
 
+    @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null || intent.getAction() == null) {
             return START_NOT_STICKY;
