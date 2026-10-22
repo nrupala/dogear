@@ -1,0 +1,14 @@
+# Signing material — NEVER committed. The release keystore lives in the
+# DOGEAR_* GitHub Actions secrets and in local custody only.
+*.keystore
+*.jks
+*keystore-password*
+*password*.txt
+
+# Machine-local + build outputs
+local.properties
+.gradle/
+build/
+app/build/
+*.idsig
+captures/
