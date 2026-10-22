@@ -245,6 +245,7 @@ public class SpeechService extends Service {
                 state = STATE_PLAYING;
                 sessionActive = true;
                 focusPaused = false;
+                cancelIdleTeardown();
                 ensureForeground();
                 requestFocus();
                 speakNow();
@@ -257,13 +258,14 @@ public class SpeechService extends Service {
                 if (currentId != null) {
                     state = STATE_PLAYING;
                     focusPaused = false;
+                    cancelIdleTeardown();
                     requestFocus();
                     speakNow();
                     refreshUi();
                 }
                 break;
             case ACTION_STOP_PLAYBACK:
-                teardown();
+                lightStop();
                 break;
             case ACTION_SKIP_CURRENT:
                 if (ttsReady && tts != null) {
@@ -362,7 +364,43 @@ public class SpeechService extends Service {
         refreshUi();
     }
 
+    // The web engine's cancel() is a routine reset: reader-core calls
+    // synth.cancel() immediately BEFORE speak() on every play, and on
+    // pause/stop. It must therefore be CHEAP — stop the utterance,
+    // keep the session and the foreground service alive. Treating it
+    // as a teardown raced the speak intent queued right behind it and
+    // killed playback before it started (emulator proof, 2026-10-22:
+    // TTS bound, session destroyed 7ms later, nothing ever spoken).
+    // A stop with nothing following it tears down after a grace
+    // period instead; any new speak/resume cancels the timer.
+    private final android.os.Handler idleHandler =
+            new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable idleTeardown = new Runnable() {
+        @Override public void run() {
+            if (state != STATE_PLAYING) teardown();
+        }
+    };
+
+    private void lightStop() {
+        if (ttsReady && tts != null) {
+            try { tts.stop(); } catch (Exception ignored) {}
+        }
+        currentId = null;
+        currentText = null;
+        if (state == STATE_PLAYING) state = STATE_PAUSED;
+        focusPaused = false;
+        releaseWakeLock();
+        refreshUi();
+        idleHandler.removeCallbacks(idleTeardown);
+        idleHandler.postDelayed(idleTeardown, 60_000);
+    }
+
+    private void cancelIdleTeardown() {
+        idleHandler.removeCallbacks(idleTeardown);
+    }
+
     private void teardown() {
+        cancelIdleTeardown();
         if (ttsReady && tts != null) {
             try { tts.stop(); } catch (Exception ignored) {}
         }
@@ -412,6 +450,7 @@ public class SpeechService extends Service {
             // pressing a dead button.
             state = STATE_PLAYING;
             focusPaused = false;
+            cancelIdleTeardown();
             ensureForeground();
             requestFocus();
             speakNow();
