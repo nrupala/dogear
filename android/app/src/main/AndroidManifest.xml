@@ -28,6 +28,11 @@
              it every page load fails in the shell. -->
         <uses-permission android:name="android.permission.INTERNET"/>
         <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+        <!-- Talk: the voice pack listens through the WebView's mic
+             capture (granted per-origin in MainActivity). The audio
+             is transcribed on-device by the bundled Whisper pack;
+             nothing is recorded to storage or uploaded. -->
+        <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
         <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
         <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>

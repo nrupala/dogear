@@ -57,8 +57,8 @@ android {
         applicationId "app.getdogear"
         minSdkVersion 24
         targetSdkVersion 36
-        versionCode 3
-        versionName "1.1.0-beta.1"
+        versionCode 4
+        versionName "1.1.0-beta.2"
 
         // The name for the application
         resValue "string", "appName", twaManifest.name
@@ -160,6 +160,12 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+    // The bundled voice pack ships as assets: keep its model and
+    // WASM bytes uncompressed (they are already dense; the asset
+    // loader streams them as-is).
+    aaptOptions {
+        noCompress 'onnx', 'wasm'
+    }
     lintOptions {
         checkReleaseBuilds false
     }
@@ -216,5 +222,9 @@ dependencies {
     // MediaSession for lock-screen + media-button controls.
     implementation 'androidx.core:core:1.13.1'
     implementation 'androidx.media:media:1.7.0'
+
+    // Bundled app (v1.1.0-beta.2): WebViewAssetLoader serves the
+    // bundled web tree under the app's real origin (BundledAssets).
+    implementation 'androidx.webkit:webkit:1.12.1'
 
 }

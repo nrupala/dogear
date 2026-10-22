@@ -10,14 +10,22 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.ViewGroup;
+import android.webkit.PermissionRequest;
+import android.webkit.ServiceWorkerClient;
+import android.webkit.ServiceWorkerController;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import androidx.webkit.WebViewAssetLoader;
+
 import org.json.JSONObject;
+
+import java.util.Arrays;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
@@ -26,10 +34,14 @@ import java.nio.charset.StandardCharsets;
 /**
  * DogEar's own shell (replaces the TWA launcher as the entry point):
  * a full-screen WebView on https://app.getdogear.app/ with the
- * speech bridge injected. The web app remains the library, the UI
- * and the place-keeper; this activity exists so playback can be
- * owned by {@link SpeechService} and keep reading while the app is
- * minimized or the screen is off.
+ * speech bridge injected. Since v1.1.0-beta.2 the page is served
+ * from the bundled asset tree (see {@link BundledAssets}) under
+ * the app's real origin — the app is self-contained and works
+ * offline; the live site remains as the backup endpoint for the
+ * paths the bundle does not carry and the /api seams. The web app
+ * remains the library, the UI and the place-keeper; this activity
+ * exists so playback can be owned by {@link SpeechService} and
+ * keep reading while the app is minimized or the screen is off.
  *
  * Deliberate choice: this activity never calls WebView.onPause().
  * Pausing the WebView suspends the page's JS — and the page is what
@@ -41,10 +53,13 @@ public class MainActivity extends Activity implements SpeechService.EventSink {
 
     private static final int REQ_FILE_CHOOSER = 4102;
     private static final int REQ_NOTIFICATIONS = 4103;
+    private static final int REQ_MIC = 4104;
     private static final String HOME_URL = "https://app.getdogear.app/";
 
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
+    private WebViewAssetLoader assetLoader;
+    private PermissionRequest pendingPermissionRequest;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,7 +84,30 @@ public class MainActivity extends Activity implements SpeechService.EventSink {
                 & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
         WebView.setWebContentsDebuggingEnabled(debuggable);
 
+        // The local endpoint: bundled assets under the real origin.
+        assetLoader = BundledAssets.loader(this);
+        try {
+            ServiceWorkerController.getInstance().setServiceWorkerClient(
+                    new ServiceWorkerClient() {
+                        @Override
+                        public WebResourceResponse shouldInterceptRequest(
+                                WebResourceRequest request) {
+                            return assetLoader.shouldInterceptRequest(request.getUrl());
+                        }
+                    });
+        } catch (Exception ignored) {
+            // A WebView too old for service-worker control: the page
+            // still loads from the bundle; only the SW's fetches
+            // would ride the network. Named in BUNDLED-APP.md.
+        }
+
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public WebResourceResponse shouldInterceptRequest(
+                    WebView view, WebResourceRequest request) {
+                return assetLoader.shouldInterceptRequest(request.getUrl());
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri url = request.getUrl();
@@ -119,6 +157,40 @@ public class MainActivity extends Activity implements SpeechService.EventSink {
                     }
                 }
                 return true;
+            }
+
+            @Override
+            public void onPermissionRequest(PermissionRequest request) {
+                // Mic capture is the only web permission the app
+                // uses (Talk: the voice pack listens on-device).
+                // Grant it only to our own origin, and only when
+                // the Android permission itself is held.
+                Uri origin = request.getOrigin();
+                boolean wantsAudio = Arrays.asList(request.getResources())
+                        .contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE);
+                if (origin != null && BundledAssets.DOMAIN.equals(origin.getHost())
+                        && wantsAudio) {
+                    if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                            == PackageManager.PERMISSION_GRANTED) {
+                        request.grant(new String[]{
+                                PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+                    } else {
+                        if (pendingPermissionRequest != null) {
+                            pendingPermissionRequest.deny();
+                        }
+                        pendingPermissionRequest = request;
+                        try {
+                            requestPermissions(
+                                    new String[]{Manifest.permission.RECORD_AUDIO},
+                                    REQ_MIC);
+                        } catch (Exception e) {
+                            pendingPermissionRequest = null;
+                            request.deny();
+                        }
+                    }
+                    return;
+                }
+                request.deny();
             }
         });
 
@@ -180,6 +252,24 @@ public class MainActivity extends Activity implements SpeechService.EventSink {
                 requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},
                         REQ_NOTIFICATIONS);
             } catch (Exception ignored) {}
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String[] permissions,
+                                           int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_MIC && pendingPermissionRequest != null) {
+            PermissionRequest req = pendingPermissionRequest;
+            pendingPermissionRequest = null;
+            boolean granted = grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            if (granted) {
+                req.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
+            } else {
+                req.deny();
+            }
         }
     }
 

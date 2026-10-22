@@ -37,6 +37,18 @@ jobs:
           yes | "$SDKMANAGER" --licenses > /dev/null || true
           "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
 
+      # The bundled app: stage the web tree into the shell's assets
+      # from the LIVE endpoints (the same bytes the Worker serves),
+      # verified file-by-file against the committed bundle-manifest
+      # (sha256 + size). A mismatch fails the build — the bundle
+      # ships the gated tree or it does not ship.
+      - name: Stage bundled web tree (verified against bundle-manifest)
+        run: |
+          python3 tools/bundle_web.py --stage \
+            --manifest bundle-manifest.json \
+            --out app/src/main/assets/web \
+            --from-live https://app.getdogear.app
+
       - name: Restore release keystore from secrets
         env:
           KEYSTORE_B64: ${{ secrets.DOGEAR_KEYSTORE_BASE64 }}
