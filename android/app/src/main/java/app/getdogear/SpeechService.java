@@ -128,10 +128,18 @@ public class SpeechService extends Service {
         startControl(ctx, ACTION_SKIP_CURRENT);
     }
 
+    // Title updates never start the service. Starting it just to
+    // set a title created + destroyed the service (and bound the
+    // TTS engine) on every document open — and the destroy raced
+    // the TTS init callback (see onInit). The title is a hint the
+    // service picks up when it actually starts; a running service
+    // gets it applied directly.
+    private static volatile String titleHint = "DogEar";
+
     public static void setNowPlaying(Context ctx, String title) {
-        Intent i = new Intent(ctx, SpeechService.class).setAction(ACTION_SET_TITLE);
-        i.putExtra("title", title);
-        startControlIntent(ctx, i);
+        if (title != null && !title.isEmpty()) titleHint = title;
+        SpeechService a = activeInstance;
+        if (a != null) a.setTitleFromBridge(title);
     }
 
     private static void startControl(Context ctx, String action) {
@@ -167,6 +175,7 @@ public class SpeechService extends Service {
     public void onCreate() {
         super.onCreate();
         activeInstance = this;
+        nowTitle = titleHint;
         createChannel();
         // Foreground IMMEDIATELY, before any intent is handled: a
         // startForegroundService() start whose onStartCommand is
@@ -194,9 +203,17 @@ public class SpeechService extends Service {
         tts = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status) {
+                // This callback can land AFTER teardown (a title-only
+                // start stopSelfs immediately; teardownTts nulls the
+                // field while init is still in flight). Dereferencing
+                // the field here crashed the whole process with an
+                // NPE in the emulator proof (2026-10-22). An init
+                // callback for a dead service is a no-op, full stop.
+                TextToSpeech engine = tts;
+                if (engine == null) return;
                 ttsReady = (status == TextToSpeech.SUCCESS);
                 if (ttsReady) {
-                    tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+                    engine.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                         @Override public void onStart(String utteranceId) {
                             Integer id = parseId(utteranceId);
                             if (id != null) emit("{\"t\":\"start\",\"id\":" + id + "}");
