@@ -27,11 +27,13 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
+      # The ubuntu image already ships the Android SDK + cmdline-tools; the
+      # setup-android action's legacy 'tools' package install is what broke
+      # the first run (2026-10-22), so sdkmanager is driven directly.
       - name: Install SDK packages
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - name: Restore release keystore from secrets
         env:
