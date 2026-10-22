@@ -522,7 +522,7 @@ public class SpeechService extends Service {
     private void controlPause() {
         boolean wasPlaying = (state == STATE_PLAYING);
         userPause(); // silence first — the tap means "quiet, now"
-        if (wasPlaying) emitControl("playpause"); // then let the page sync its state
+        if (wasPlaying) emitControl("pause"); // explicit, idempotent
     }
 
     private void controlResume() {
@@ -530,7 +530,7 @@ public class SpeechService extends Service {
         if (eventSink != null) {
             // Preferred path: the page's reader resumes, and its
             // resume() call re-enters this service as ACTION_RESUME.
-            emitControl("playpause");
+            emitControl("resume");
         } else {
             // The page is unreachable (activity gone): re-speak the
             // current chunk directly rather than leaving the user

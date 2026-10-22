@@ -140,8 +140,30 @@
 
   var reader = null;
   function handleControl(action) {
-    if (action === 'playpause') {
-      if (reader) { try { reader.play(); } catch (e) {} }
+    // Controls are IDEMPOTENT, never toggles: the reader's play() is
+    // a toggle, so a pause event applies only while playing and a
+    // resume only while paused. A toggle echoed back by the service
+    // (its own state changes, session churn, focus events) could
+    // otherwise flip a correctly-playing reader to paused — seen in
+    // the emulator proof, where the reader paused itself ~1 chunk
+    // into every session while the service kept speaking.
+    var st = null;
+    if (reader && reader.getState) { try { st = reader.getState(); } catch (e) {} }
+    if (action === 'pause') {
+      if (reader && (st === 'playing' || st === null)) {
+        try { reader.play(); } catch (e) {}
+      }
+    } else if (action === 'resume') {
+      if (reader && st === 'paused') {
+        try { reader.play(); } catch (e) {}
+      }
+    } else if (action === 'playpause') {
+      // Legacy event name: with state known it is the idempotent
+      // form (pause if playing, resume if paused); without state
+      // info it degrades to the reader's raw toggle.
+      if (reader && (st === 'playing' || st === 'paused' || st === null)) {
+        try { reader.play(); } catch (e) {}
+      }
     } else if (action === 'stop') {
       if (reader) { try { reader.stop(); } catch (e) {} }
     } else if (action === 'next') {
