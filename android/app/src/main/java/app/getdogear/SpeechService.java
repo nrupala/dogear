@@ -155,6 +155,15 @@ public class SpeechService extends Service {
     public void onCreate() {
         super.onCreate();
         createChannel();
+        // Foreground IMMEDIATELY, before any intent is handled: a
+        // startForegroundService() start whose onStartCommand is
+        // delayed (frozen main thread, slow device) otherwise outruns
+        // the system's startForeground deadline and the OS kills the
+        // whole app (ForegroundServiceDidNotStartInTimeException —
+        // reproduced in the emulator proof, 2026-10-21). Starting
+        // foreground at birth makes every later start safe by
+        // construction; ensureForeground() refreshes the content.
+        try { ensureForeground(); } catch (Exception ignored) {}
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
         if (pm != null) {
