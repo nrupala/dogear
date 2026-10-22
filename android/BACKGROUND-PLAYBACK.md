@@ -91,6 +91,20 @@ is a sentence or two, the same behaviour Evie-class readers exhibit).
   opens; the release notes for owner testing carry the standard guidance
   (Battery → set DogEar to Unrestricted) in case his phone needs it.
 
+## Build finding (2026-10-21, emulator): the INTERNET permission
+
+The first shell builds failed **every** page load with
+`net::ERR_CACHE_MISS` — stock sites included, on two emulator images,
+while Chrome and the guest's own network stack worked fine. Root
+cause: the TWA-era manifest never declared
+`android.permission.INTERNET`. A TWA doesn't need it (Chrome fetches
+the page); a WebView shell does — it fetches from the app's own
+process, and without the permission the network service cannot
+create a socket, which Chromium surfaces as the misleading
+ERR_CACHE_MISS. Fixed by declaring the permission. Recorded here
+because the error text points nowhere near the cause: on this
+symptom, check the manifest before blaming the network.
+
 ## Spike → build
 
 The spike is the production code path, not a throwaway: the shell
