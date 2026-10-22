@@ -32,3 +32,17 @@ while passing every static check. v1.0.1 is the same app built with the real
 Gradle pipeline and proven to open in an emulator. Full record:
 [`CRASH-FIX-NOTE.md`](CRASH-FIX-NOTE.md). Local hand-assembly of a release
 package is out — if it isn't built by CI from this tree, it doesn't ship.
+
+## Background playback (v1.1.0+)
+
+DogEar is a WebView shell + native foreground playback service, not a
+pure TWA — see `BACKGROUND-PLAYBACK.md` in this directory for the
+design and the protocol. Two deliveries of the speech bridge exist
+and MUST stay byte-identical:
+
+- the web app source: `src/native-bridge.js` in the dogear app
+  workspace (served by the site as `/native-bridge.js`), and
+- the shell's bundled fallback: `app/src/main/assets/dogear-native-bridge.js`
+  in this project (injected only when the served page did not load it).
+
+CI builds remain the only source of release packages.

@@ -23,7 +23,15 @@
     package="app.getdogear">
 
     
+        <!-- The WebView shell fetches from this process. The TWA
+             never declared INTERNET (Chrome fetched for it); without
+             it every page load fails in the shell. -->
+        <uses-permission android:name="android.permission.INTERNET"/>
         <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+        <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+        <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
+        <uses-permission android:name="android.permission.WAKE_LOCK"/>
     
 
     
@@ -139,25 +147,35 @@
 
             
 
+            <!-- v1.1.0: the TWA launcher is no longer an entry point.
+                 MainActivity (below) is the launcher; this activity
+                 stays declared only so the legacy components resolve. -->
+
+        </activity>
+
+        <activity android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/launcherName"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|density"
+            android:launchMode="singleTask"
+            android:theme="@android:style/Theme.Material.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
             <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW"/>
+                <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE"/>
+                <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https"
-                    android:host="@string/hostName"
-                
-                />
+                    android:host="@string/hostName" />
             </intent-filter>
-
-            
-
-            
         </activity>
+
+        <service android:name=".SpeechService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback"
+            android:stopWithTask="false" />
 
         <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />
 
