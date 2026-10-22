@@ -152,8 +152,21 @@ public class SpeechService extends Service {
     // ------------------------------------------------------------------
 
     @Override
+    // The running instance, for the JS bridge's direct-call path.
+    // Chunk traffic must NOT go through startService intents: once
+    // the app is backgrounded (the entire point of this service),
+    // Android's background-start restrictions can refuse or throw on
+    // service starts from the page, while a direct in-process call to
+    // the already-running foreground service always works. Intents
+    // remain the entry for the notification / media-session controls,
+    // which hold their own platform exemptions.
+    private static volatile SpeechService activeInstance;
+
+    public static SpeechService active() { return activeInstance; }
+
     public void onCreate() {
         super.onCreate();
+        activeInstance = this;
         createChannel();
         // Foreground IMMEDIATELY, before any intent is handled: a
         // startForegroundService() start whose onStartCommand is
@@ -231,17 +244,19 @@ public class SpeechService extends Service {
     }
 
     @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null || intent.getAction() == null) {
-            return START_NOT_STICKY;
-        }
-        String action = intent.getAction();
-        switch (action) {
-            case ACTION_SPEAK: {
-                currentId = intent.getIntExtra("id", -1);
-                currentText = intent.getStringExtra("text");
-                currentRate = intent.getFloatExtra("rate", 1f);
-                currentLang = intent.getStringExtra("lang");
+    // ------------------------------------------------------------------
+    // Instance entry points (JS bridge direct calls + intent handling
+    // share these). Work is posted to the main looper so bridge calls
+    // (JavaBridge thread) get identical threading to onStartCommand.
+    // ------------------------------------------------------------------
+
+    public void speakChunk(final int id, final String text, final float rate, final String lang) {
+        idleHandler.post(new Runnable() {
+            @Override public void run() {
+                currentId = id;
+                currentText = text;
+                currentRate = rate;
+                currentLang = lang;
                 state = STATE_PLAYING;
                 sessionActive = true;
                 focusPaused = false;
@@ -249,35 +264,89 @@ public class SpeechService extends Service {
                 ensureForeground();
                 requestFocus();
                 speakNow();
-                break;
             }
+        });
+    }
+
+    public void pauseFromBridge() {
+        idleHandler.post(new Runnable() {
+            @Override public void run() { userPause(); }
+        });
+    }
+
+    public void resumeFromBridge() {
+        idleHandler.post(new Runnable() {
+            @Override public void run() { resumeChunk(); }
+        });
+    }
+
+    public void stopFromBridge() {
+        idleHandler.post(new Runnable() {
+            @Override public void run() { lightStop(); }
+        });
+    }
+
+    public void skipFromBridge() {
+        idleHandler.post(new Runnable() {
+            @Override public void run() { skipChunk(); }
+        });
+    }
+
+    public void setTitleFromBridge(final String title) {
+        idleHandler.post(new Runnable() {
+            @Override public void run() { applyTitle(title); }
+        });
+    }
+
+    private void resumeChunk() {
+        if (currentId != null) {
+            state = STATE_PLAYING;
+            focusPaused = false;
+            cancelIdleTeardown();
+            requestFocus();
+            speakNow();
+            refreshUi();
+        }
+    }
+
+    private void skipChunk() {
+        if (ttsReady && tts != null) {
+            try { tts.stop(); } catch (Exception ignored) {}
+        }
+    }
+
+    private void applyTitle(String t) {
+        if (t != null && !t.isEmpty()) nowTitle = t;
+        refreshUi();
+    }
+
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent == null || intent.getAction() == null) {
+            return START_NOT_STICKY;
+        }
+        String action = intent.getAction();
+        switch (action) {
+            case ACTION_SPEAK:
+                speakChunk(intent.getIntExtra("id", -1),
+                        intent.getStringExtra("text"),
+                        intent.getFloatExtra("rate", 1f),
+                        intent.getStringExtra("lang"));
+                break;
             case ACTION_PAUSE:
                 userPause();
                 break;
             case ACTION_RESUME:
-                if (currentId != null) {
-                    state = STATE_PLAYING;
-                    focusPaused = false;
-                    cancelIdleTeardown();
-                    requestFocus();
-                    speakNow();
-                    refreshUi();
-                }
+                resumeChunk();
                 break;
             case ACTION_STOP_PLAYBACK:
                 lightStop();
                 break;
             case ACTION_SKIP_CURRENT:
-                if (ttsReady && tts != null) {
-                    try { tts.stop(); } catch (Exception ignored) {}
-                }
+                skipChunk();
                 break;
-            case ACTION_SET_TITLE: {
-                String t = intent.getStringExtra("title");
-                if (t != null && !t.isEmpty()) nowTitle = t;
-                refreshUi();
+            case ACTION_SET_TITLE:
+                applyTitle(intent.getStringExtra("title"));
                 break;
-            }
             case ACTION_CTRL_PAUSE:
                 controlPause();
                 break;
@@ -311,6 +380,7 @@ public class SpeechService extends Service {
 
     @Override
     public void onDestroy() {
+        if (activeInstance == this) activeInstance = null;
         teardownTts();
         if (mediaSession != null) {
             mediaSession.setActive(false);

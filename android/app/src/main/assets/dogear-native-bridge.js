@@ -175,6 +175,31 @@
     try { console.warn('DogEar bridge: speechSynthesis is not replaceable in this WebView'); } catch (e) {}
     return;
   }
+  // Some WebView builds expose a speechSynthesis object but no
+  // SpeechSynthesisUtterance constructor — the reader engine builds
+  // utterances with `new SpeechSynthesisUtterance(text)` and dies on
+  // the constructor before speak() is ever reached (emulator proof,
+  // 2026-10-22: the click produced the cancel but no speak, ever).
+  // Supply the missing constructor: a plain utterance record the
+  // shim's speak() already knows how to read. Native constructors
+  // (Chrome, real browsers) are never touched.
+  if (typeof window.SpeechSynthesisUtterance !== 'function') {
+    window.SpeechSynthesisUtterance = function (text) {
+      this.text = text == null ? '' : String(text);
+      this.lang = '';
+      this.voice = null;
+      this.rate = 1;
+      this.pitch = 1;
+      this.volume = 1;
+      this.onstart = null;
+      this.onend = null;
+      this.onerror = null;
+      this.onpause = null;
+      this.onresume = null;
+      this.onmark = null;
+      this.onboundary = null;
+    };
+  }
   window.__dogearBridgeShell = true;
   // If this script was injected after the app booted (shell fallback
   // delivery), the app's boot-time voice detection already judged the

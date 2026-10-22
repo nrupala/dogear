@@ -116,3 +116,28 @@ the shell checks a flag and never double-installs). Emulator proof
 with the activity backgrounded → screen off → still reading →
 notification pause/resume → return to the app with the place where the
 voice is. Only on that evidence does the CI pre-release get cut.
+
+## Emulator proof findings, round 2 (2026-10-22, later)
+
+Two more shipping defects the proof caught, both fixed:
+
+4. **The WebView has no `SpeechSynthesisUtterance` constructor.**
+   reader-core builds each utterance with
+   `new SpeechSynthesisUtterance(text)`; on this WebView build that
+   throws before `speak()` is ever reached — the click produced the
+   engine's reset-cancel and nothing else, forever. The bridge now
+   supplies the missing constructor when it installs the shim (a
+   plain utterance record); a native constructor is never replaced.
+   Regression test N11 in the web suite.
+
+5. **Chunk traffic cannot ride service-start intents.** Once the
+   app is backgrounded — the entire point of the feature — Android's
+   background-start restrictions can refuse `startService` /
+   `startForegroundService` from the page (observed directly: a
+   backgrounded direct call raised "Java exception was raised
+   during method invocation"). The bridge now calls the RUNNING
+   service's instance directly (same process; the service registers
+   itself in onCreate). Intents remain only for the first start
+   (user pressing Listen, app foregrounded) and for the
+   notification / media-session controls, which hold their own
+   platform exemptions.
