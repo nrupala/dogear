@@ -143,6 +143,14 @@ public class SpeechService extends Service {
     }
 
     private static void startControl(Context ctx, String action) {
+        // A page-side control for a service that is not running has
+        // nothing to control — and must not CREATE one: an instance
+        // born of a stray cancel stopSelfs immediately, and a speak
+        // landing on it in the same breath dies with it (emulator
+        // proof, 2026-10-22). The notification's own PendingIntents
+        // do not come through here; a genuine user tap on a live
+        // notification implies a running service anyway.
+        if (active() == null) return;
         startControlIntent(ctx, new Intent(ctx, SpeechService.class).setAction(action));
     }
 
@@ -169,7 +177,20 @@ public class SpeechService extends Service {
     // which hold their own platform exemptions.
     private static volatile SpeechService activeInstance;
 
-    public static SpeechService active() { return activeInstance; }
+    // Set in onDestroy. A destroyed instance must never receive
+    // direct calls: the emulator proof (2026-10-22) showed the
+    // engine's reset-cancel creating an instance that stopSelf'd at
+    // once, the speak 4ms later landing on the corpse via this path,
+    // and its pending utterance waiting forever on an init callback
+    // the (correct) null-guard swallowed. Playback never started;
+    // the page's watchdog then "failed" speech that was never given
+    // a living service.
+    private volatile boolean destroyed = false;
+
+    public static SpeechService active() {
+        SpeechService a = activeInstance;
+        return (a != null && !a.destroyed) ? a : null;
+    }
 
     @Override
     public void onCreate() {
@@ -267,6 +288,13 @@ public class SpeechService extends Service {
     // ------------------------------------------------------------------
 
     public void speakChunk(final int id, final String text, final float rate, final String lang) {
+        if (destroyed) {
+            // Never speak into a corpse: re-enter through the
+            // foreground-service start, which builds a fresh,
+            // living instance (the user just pressed Listen).
+            speak(getApplicationContext(), id, text, rate, lang);
+            return;
+        }
         idleHandler.post(new Runnable() {
             @Override public void run() {
                 currentId = id;
@@ -397,6 +425,7 @@ public class SpeechService extends Service {
 
     @Override
     public void onDestroy() {
+        destroyed = true;
         if (activeInstance == this) activeInstance = null;
         teardownTts();
         if (mediaSession != null) {
