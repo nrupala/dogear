@@ -70,7 +70,56 @@ public class MainActivity extends Activity implements SpeechService.EventSink {
         webView.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         webView.setBackgroundColor(Color.rgb(8, 19, 34));
-        setContentView(webView);
+        // The WebView lives in a container whose PADDING carries
+        // the system-bar insets (see the decor listener below):
+        // padding on the WebView itself only insets its canvas and
+        // leaves its layout viewport full-height — measured twice
+        // in the guest (innerHeight stayed 915) before this shape.
+        final android.widget.FrameLayout root = new android.widget.FrameLayout(this);
+        root.setBackgroundColor(Color.rgb(8, 19, 34));
+        root.addView(webView);
+        setContentView(root);
+
+        // Edge-to-edge is forced at this targetSdk: without insets
+        // the page paints UNDER the status bar — the app's header
+        // row (Privacy / Release log / About) rendered beneath the
+        // system clock and its taps were consumed by the system
+        // strip (owner's phone report "the top button doesn't work
+        // properly", reproduced + measured in the emulator audit
+        // 2026-10-22: links at CSS y 17-40, inside the bar's touch
+        // zone). Pad the WebView's container by the status-bar
+        // (+cutout) and navigation-bar insets; the window background (#081322,
+        // set above) fills the padded bands in the app's own
+        // colour. The listener sits on the DECOR view: the first
+        // build of this fix listened on the WebView itself and the
+        // padding never applied — an ancestor in the dispatch
+        // chain consumed the status-bar inset before it reached
+        // the content view (measured: viewport stayed at full
+        // height). The decor view is first in dispatch and cannot
+        // be starved. Insets are returned unconsumed.
+        getWindow().getDecorView().setOnApplyWindowInsetsListener(
+                new android.view.View.OnApplyWindowInsetsListener() {
+            @Override
+            public android.view.WindowInsets onApplyWindowInsets(
+                    android.view.View v, android.view.WindowInsets insets) {
+                int top;
+                int bottom;
+                if (Build.VERSION.SDK_INT >= 30) {
+                    android.graphics.Insets bars = insets.getInsets(
+                            android.view.WindowInsets.Type.statusBars()
+                                    | android.view.WindowInsets.Type.displayCutout());
+                    android.graphics.Insets nav = insets.getInsets(
+                            android.view.WindowInsets.Type.navigationBars());
+                    top = bars.top;
+                    bottom = nav.bottom;
+                } else {
+                    top = insets.getSystemWindowInsetTop();
+                    bottom = insets.getSystemWindowInsetBottom();
+                }
+                root.setPadding(0, top, 0, bottom);
+                return insets;
+            }
+        });
 
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);

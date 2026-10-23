@@ -33,10 +33,25 @@
              is transcribed on-device by the bundled Whisper pack;
              nothing is recorded to storage or uploaded. -->
         <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+        <!-- Chromium's WebView capture path (cr_media) refuses to
+             open an audio device unless the app ALSO holds this —
+             without it getUserMedia dies with NotReadableError even
+             when RECORD_AUDIO is granted. Install-time permission,
+             no user prompt. Found on the owner's phone, proven on
+             the bench 2026-10-22 (diag A/B). -->
+        <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
 
         <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
         <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
         <uses-permission android:name="android.permission.WAKE_LOCK"/>
+        <!-- Background reading insurance: some phones (Samsung
+             One UI app-sleep is the proven case, 2026-10-22) kill
+             even a foreground-service app whose battery mode is
+             restricted. The app may ASK the user — in the reader,
+             once, with the reason stated — to exempt DogEar; it
+             never asks silently and playback works without it on
+             stock Android (proven in the emulator legs). -->
+        <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     
 
     

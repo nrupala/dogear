@@ -1,7 +1,14 @@
 package app.getdogear;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.PowerManager;
+import android.provider.Settings;
 import android.webkit.JavascriptInterface;
+
+import java.lang.ref.WeakReference;
 
 /**
  * The page-side half of the DogEar speech bridge. Exposed to the web
@@ -24,9 +31,52 @@ import android.webkit.JavascriptInterface;
  */
 public class DogEarJsBridge {
     private final Context appContext;
+    private final WeakReference<Activity> activityRef;
 
     public DogEarJsBridge(Context context) {
         this.appContext = context.getApplicationContext();
+        this.activityRef = new WeakReference<>(
+                context instanceof Activity ? (Activity) context : null);
+    }
+
+    /** Battery-exemption state for the reader's one-time hint.
+     *  Some phones (Samsung One UI app-sleep is the proven case)
+     *  kill even a foreground-service app whose battery mode is
+     *  restricted; stock Android does not. The page asks, shows
+     *  the reason once, and only on the user's tap calls
+     *  requestBatteryExemption(). */
+    @JavascriptInterface
+    public boolean isIgnoringBatteryOptimizations() {
+        try {
+            PowerManager pm = (PowerManager)
+                    appContext.getSystemService(Context.POWER_SERVICE);
+            return pm != null && pm.isIgnoringBatteryOptimizations(
+                    appContext.getPackageName());
+        } catch (Exception e) {
+            return true; // unknown → never nag
+        }
+    }
+
+    @JavascriptInterface
+    public void requestBatteryExemption() {
+        Activity a = activityRef.get();
+        if (a == null) return;
+        a.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Intent i = new Intent(
+                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    i.setData(Uri.parse("package:" + appContext.getPackageName()));
+                    a.startActivity(i);
+                } catch (Exception e) {
+                    try {
+                        a.startActivity(new Intent(
+                                Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+                    } catch (Exception ignored) {}
+                }
+            }
+        });
     }
 
     @JavascriptInterface

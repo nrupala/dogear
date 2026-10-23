@@ -1,224 +1,225 @@
 {
- "worker": "dogear-app",
- "worker_sha256": "e1df6e6685004034c8114fec555d9b6b55aa1165e2daddf91537cb2b9de5d1a5",
- "web_version": "1.3.0",
- "entries": [
-  {
-   "route": "/",
-   "asset": "index.html",
-   "type": "text/html; charset=utf-8",
-   "bytes": 13032,
-   "sha256": "39996ee8bc77aecb82bcfdc2596f4ae4c036cefb9db6fae8329baf385cf2a83f",
-   "source": "src/index.html"
-  },
-  {
-   "route": "/.well-known/assetlinks.json",
-   "asset": ".well-known/assetlinks.json",
-   "type": "application/json; charset=utf-8",
-   "bytes": 256,
-   "sha256": "aeb9d961cc8b37f62d955ed9c21c2cd496827c7949e4de94d7b7e3975b9cdaff",
-   "source": "src/assetlinks.json"
-  },
-  {
-   "route": "/app.css",
-   "asset": "app.css",
-   "type": "text/css; charset=utf-8",
-   "bytes": 4506,
-   "sha256": "4e6eb6dafe4f3a1249950379ffc5123e61274218cf7f535293ebfb9e4294a5d1",
-   "source": "src/app.css"
-  },
-  {
-   "route": "/app.js",
-   "asset": "app.js",
-   "type": "text/javascript; charset=utf-8",
-   "bytes": 57518,
-   "sha256": "b18a37e5a03196d6353652a6e00a9673cd6bb21110b642a8a35a003296f18975",
-   "source": "src/app.js"
-  },
-  {
-   "route": "/billing.js",
-   "asset": "billing.js",
-   "type": "text/javascript; charset=utf-8",
-   "bytes": 9275,
-   "sha256": "a125c85860b22d24e6ec4e070c49f71bc92c26dccdbceadb2bfa4435403a2782",
-   "source": "src/billing.js"
-  },
-  {
-   "route": "/config.js",
-   "asset": "config.js",
-   "type": "text/javascript; charset=utf-8",
-   "bytes": 3417,
-   "sha256": "6fafcac19b1db3efc88a558531cdfdb76868256ce8a22f6c02145c0fc138b67a",
-   "source": "src/config.js"
-  },
-  {
-   "route": "/icons/apple-touch-icon.png",
-   "asset": "icons/apple-touch-icon.png",
-   "type": "image/png",
-   "bytes": 41088,
-   "sha256": "e9e55d9bae1913c84e3ddde9701fbd7a97573a37175f21d70b04cef40548ffe1",
-   "source": "src/icons/apple-touch-icon.png"
-  },
-  {
-   "route": "/icons/icon-192.png",
-   "asset": "icons/icon-192.png",
-   "type": "image/png",
-   "bytes": 19505,
-   "sha256": "268881e4abfaa17a987d0f75aea6a7a90ef3c7acc3e0869323624926a6e18a6f",
-   "source": "src/icons/icon-192.png"
-  },
-  {
-   "route": "/icons/icon-512.png",
-   "asset": "icons/icon-512.png",
-   "type": "image/png",
-   "bytes": 119742,
-   "sha256": "5b2f0c689a7d4a67e7ab15195db7e3dbbadc0c81837ad179397fafb18475f36d",
-   "source": "src/icons/icon-512.png"
-  },
-  {
-   "route": "/icons/maskable-512.png",
-   "asset": "icons/maskable-512.png",
-   "type": "image/png",
-   "bytes": 94945,
-   "sha256": "7ccd84a32c934b48b820b7a10e65599c91af1fa6e8360556c3bb0ee86c95661e",
-   "source": "src/icons/maskable-512.png"
-  },
-  {
-   "route": "/ingest.js",
-   "asset": "ingest.js",
-   "type": "text/javascript; charset=utf-8",
-   "bytes": 11382,
-   "sha256": "7f0e1a983bcc25b246cd49bab932efdfb29a837612b62faa0930d56d09736051",
-   "source": "src/ingest.js"
-  },
-  {
-   "route": "/licence.js",
-   "asset": "licence.js",
-   "type": "text/javascript; charset=utf-8",
-   "bytes": 5459,
-   "sha256": "6b91792ce5d66cf69666e879ce4ea69b84c3160eccda775557a9865250162f39",
-   "source": "src/licence.js"
-  },
-  {
-   "route": "/manifest.webmanifest",
-   "asset": "manifest.webmanifest",
-   "type": "application/manifest+json; charset=utf-8",
-   "bytes": 553,
-   "sha256": "86c2e5535da65915d9c63982728a2d56ee8ca2732ef3f394aba0921ca76d632e",
-   "source": "src/manifest.webmanifest"
-  },
-  {
-   "route": "/meter.js",
-   "asset": "meter.js",
-   "type": "text/javascript; charset=utf-8",
-   "bytes": 8314,
-   "sha256": "eff87fd0b7dc7b14344a3d8d5dfe3df46a23726415206fc949e95009238b2786",
-   "source": "src/meter.js"
-  },
-  {
-   "route": "/native-bridge.js",
-   "asset": "native-bridge.js",
-   "type": "text/javascript; charset=utf-8",
-   "bytes": 9068,
-   "sha256": "b7cdc7a03d6dae7f22f2e15f7648e4542a5ac91f946bc302ae4900dab1bd004c",
-   "source": "src/native-bridge.js"
-  },
-  {
-   "route": "/privacy",
-   "asset": "privacy.html",
-   "type": "text/html; charset=utf-8",
-   "bytes": 6257,
-   "sha256": "e34938602b42750766f272831c53841729b0f0fcfc8e52c9e92d60681becd183",
-   "source": "src/privacy.html"
-  },
-  {
-   "route": "/reader-core.css",
-   "asset": "reader-core.css",
-   "type": "text/css; charset=utf-8",
-   "bytes": 1656,
-   "sha256": "5ae01128a9ea4c66953e0d01d4f3ececa3b7242cd157aea7ab239d18a133fcb2",
-   "source": "VENDOR_READER/reader-core.css"
-  },
-  {
-   "route": "/reader-core.js",
-   "asset": "reader-core.js",
-   "type": "text/javascript; charset=utf-8",
-   "bytes": 15013,
-   "sha256": "df494ccb05235615d4533195a2cb30c04ceac69a714e40af50596c0b365b3712",
-   "source": "VENDOR_READER/reader-core.js"
-  },
-  {
-   "route": "/releases",
-   "asset": "releases.html",
-   "type": "text/html; charset=utf-8",
-   "bytes": 9436,
-   "sha256": "e3afd50201d7bdf9de06ac64a29ccb533f3e43f375460d9eb9f76ff9a97216cd",
-   "source": "src/releases.html"
-  },
-  {
-   "route": "/retrieval.js",
-   "asset": "retrieval.js",
-   "type": "text/javascript; charset=utf-8",
-   "bytes": 19259,
-   "sha256": "a4096a70575668549da31e5d34dc7be4c6872861c4fbbbc57fb45bdc8c8f6572",
-   "source": "src/retrieval.js"
-  },
-  {
-   "route": "/sw.js",
-   "asset": "sw.js",
-   "type": "text/javascript; charset=utf-8",
-   "bytes": 3587,
-   "sha256": "eefea88e200a380cc231ba3f804f9c1732b97d3d23f448c09e9c75dc3fe190c3",
-   "source": "src/sw.js"
-  },
-  {
-   "route": "/vendor/jszip.min.js",
-   "asset": "vendor/jszip.min.js",
-   "type": "text/javascript; charset=utf-8",
-   "bytes": 97781,
-   "sha256": "7f839b2d4688b845c105ebf5d2f9803075f91ea0fe72bdaac176c3a04dd3d2c1",
-   "source": "vendor/ingest/jszip.min.js"
-  },
-  {
-   "route": "/vendor/mammoth.browser.min.js",
-   "asset": "vendor/mammoth.browser.min.js",
-   "type": "text/javascript; charset=utf-8",
-   "bytes": 405060,
-   "sha256": "92914a3708cfdf1e62cb553d1856a7fedab21da83d8ee82845de2f897b368cab",
-   "source": "vendor/ingest/mammoth.browser.min.js"
-  },
-  {
-   "route": "/vendor/nacl.min.js",
-   "asset": "vendor/nacl.min.js",
-   "type": "text/javascript; charset=utf-8",
-   "bytes": 18456,
-   "sha256": "973cc5733cc7432e30ee4682098f413094f494bccf76a567c23908c5035ddbbc",
-   "source": "vendor/ingest/nacl.min.js"
-  },
-  {
-   "route": "/vendor/pdf.min.mjs",
-   "asset": "vendor/pdf.min.mjs",
-   "type": "text/javascript; charset=utf-8",
-   "bytes": 458904,
-   "sha256": "57456c8e0c81e46be31174b499ef77f2b9f5ee46d04412ba627320a36755d4c2",
-   "source": "vendor/ingest/pdf.min.mjs"
-  },
-  {
-   "route": "/vendor/pdf.worker.min.mjs",
-   "asset": "vendor/pdf.worker.min.mjs",
-   "type": "text/javascript; charset=utf-8",
-   "bytes": 1264342,
-   "sha256": "9536359f1b8367850d485731ca1d5e45c159a7b7a0912325e539937aa21ceb18",
-   "source": "vendor/ingest/pdf.worker.min.mjs"
-  },
-  {
-   "route": "/voicepack.js",
-   "asset": "voicepack.js",
-   "type": "text/javascript; charset=utf-8",
-   "bytes": 28885,
-   "sha256": "a6ec132e0282e6d5f8cf2f0fcae7b2c589337a0cce9dc5d8ce45ff1054b05a4a",
-   "source": "src/voicepack.js"
-  }
- ],
- "total_bytes": 2726696
+  "worker": "dogear-app",
+  "worker_sha256": "428daa2044e82cd1cbae7603fc999c98bca30936e96089bb5a6ef7361dfb78a1",
+  "web_version": "1.4.0",
+  "variant": "routes-only",
+  "entries": [
+    {
+      "route": "/",
+      "asset": "index.html",
+      "type": "text/html; charset=utf-8",
+      "bytes": 13569,
+      "sha256": "3c37ab760aa28839b2d10bfd77067f9fd84d0b51cd8648be7053a18a338a598a",
+      "source": "src/index.html"
+    },
+    {
+      "route": "/.well-known/assetlinks.json",
+      "asset": ".well-known/assetlinks.json",
+      "type": "application/json; charset=utf-8",
+      "bytes": 256,
+      "sha256": "aeb9d961cc8b37f62d955ed9c21c2cd496827c7949e4de94d7b7e3975b9cdaff",
+      "source": "src/assetlinks.json"
+    },
+    {
+      "route": "/app.css",
+      "asset": "app.css",
+      "type": "text/css; charset=utf-8",
+      "bytes": 4506,
+      "sha256": "4e6eb6dafe4f3a1249950379ffc5123e61274218cf7f535293ebfb9e4294a5d1",
+      "source": "src/app.css"
+    },
+    {
+      "route": "/app.js",
+      "asset": "app.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 60470,
+      "sha256": "2bae3d086fc161874eef30c3c353b54ca429c9861aff2362b2cb4cc2373004ba",
+      "source": "src/app.js"
+    },
+    {
+      "route": "/billing.js",
+      "asset": "billing.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 9275,
+      "sha256": "a125c85860b22d24e6ec4e070c49f71bc92c26dccdbceadb2bfa4435403a2782",
+      "source": "src/billing.js"
+    },
+    {
+      "route": "/config.js",
+      "asset": "config.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 3417,
+      "sha256": "7dfc36b7db3fb8578955e57a92295d4f291c9ea3d2c1f04f848192dab2e27401",
+      "source": "src/config.js"
+    },
+    {
+      "route": "/icons/apple-touch-icon.png",
+      "asset": "icons/apple-touch-icon.png",
+      "type": "image/png",
+      "bytes": 41088,
+      "sha256": "e9e55d9bae1913c84e3ddde9701fbd7a97573a37175f21d70b04cef40548ffe1",
+      "source": "src/icons/apple-touch-icon.png"
+    },
+    {
+      "route": "/icons/icon-192.png",
+      "asset": "icons/icon-192.png",
+      "type": "image/png",
+      "bytes": 19505,
+      "sha256": "268881e4abfaa17a987d0f75aea6a7a90ef3c7acc3e0869323624926a6e18a6f",
+      "source": "src/icons/icon-192.png"
+    },
+    {
+      "route": "/icons/icon-512.png",
+      "asset": "icons/icon-512.png",
+      "type": "image/png",
+      "bytes": 119742,
+      "sha256": "5b2f0c689a7d4a67e7ab15195db7e3dbbadc0c81837ad179397fafb18475f36d",
+      "source": "src/icons/icon-512.png"
+    },
+    {
+      "route": "/icons/maskable-512.png",
+      "asset": "icons/maskable-512.png",
+      "type": "image/png",
+      "bytes": 94945,
+      "sha256": "7ccd84a32c934b48b820b7a10e65599c91af1fa6e8360556c3bb0ee86c95661e",
+      "source": "src/icons/maskable-512.png"
+    },
+    {
+      "route": "/ingest.js",
+      "asset": "ingest.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 11382,
+      "sha256": "7f0e1a983bcc25b246cd49bab932efdfb29a837612b62faa0930d56d09736051",
+      "source": "src/ingest.js"
+    },
+    {
+      "route": "/licence.js",
+      "asset": "licence.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 5459,
+      "sha256": "6b91792ce5d66cf69666e879ce4ea69b84c3160eccda775557a9865250162f39",
+      "source": "src/licence.js"
+    },
+    {
+      "route": "/manifest.webmanifest",
+      "asset": "manifest.webmanifest",
+      "type": "application/manifest+json; charset=utf-8",
+      "bytes": 553,
+      "sha256": "86c2e5535da65915d9c63982728a2d56ee8ca2732ef3f394aba0921ca76d632e",
+      "source": "src/manifest.webmanifest"
+    },
+    {
+      "route": "/meter.js",
+      "asset": "meter.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 8314,
+      "sha256": "eff87fd0b7dc7b14344a3d8d5dfe3df46a23726415206fc949e95009238b2786",
+      "source": "src/meter.js"
+    },
+    {
+      "route": "/native-bridge.js",
+      "asset": "native-bridge.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 9068,
+      "sha256": "b7cdc7a03d6dae7f22f2e15f7648e4542a5ac91f946bc302ae4900dab1bd004c",
+      "source": "src/native-bridge.js"
+    },
+    {
+      "route": "/privacy",
+      "asset": "privacy.html",
+      "type": "text/html; charset=utf-8",
+      "bytes": 6257,
+      "sha256": "e34938602b42750766f272831c53841729b0f0fcfc8e52c9e92d60681becd183",
+      "source": "src/privacy.html"
+    },
+    {
+      "route": "/reader-core.css",
+      "asset": "reader-core.css",
+      "type": "text/css; charset=utf-8",
+      "bytes": 1656,
+      "sha256": "5ae01128a9ea4c66953e0d01d4f3ececa3b7242cd157aea7ab239d18a133fcb2",
+      "source": "VENDOR_READER/reader-core.css"
+    },
+    {
+      "route": "/reader-core.js",
+      "asset": "reader-core.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 15013,
+      "sha256": "df494ccb05235615d4533195a2cb30c04ceac69a714e40af50596c0b365b3712",
+      "source": "VENDOR_READER/reader-core.js"
+    },
+    {
+      "route": "/releases",
+      "asset": "releases.html",
+      "type": "text/html; charset=utf-8",
+      "bytes": 11008,
+      "sha256": "d53c6aa5c2d807850dcdb137a2b87c74821fa527e7830e56ee4827f463bf5e9e",
+      "source": "src/releases.html"
+    },
+    {
+      "route": "/retrieval.js",
+      "asset": "retrieval.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 19259,
+      "sha256": "a4096a70575668549da31e5d34dc7be4c6872861c4fbbbc57fb45bdc8c8f6572",
+      "source": "src/retrieval.js"
+    },
+    {
+      "route": "/sw.js",
+      "asset": "sw.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 3585,
+      "sha256": "41ad06c5eec53d3e63a29c2d853adbec4bfd846fe4540ed9b949b51302e4e813",
+      "source": "src/sw.js"
+    },
+    {
+      "route": "/vendor/jszip.min.js",
+      "asset": "vendor/jszip.min.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 97781,
+      "sha256": "7f839b2d4688b845c105ebf5d2f9803075f91ea0fe72bdaac176c3a04dd3d2c1",
+      "source": "vendor/ingest/jszip.min.js"
+    },
+    {
+      "route": "/vendor/mammoth.browser.min.js",
+      "asset": "vendor/mammoth.browser.min.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 405060,
+      "sha256": "92914a3708cfdf1e62cb553d1856a7fedab21da83d8ee82845de2f897b368cab",
+      "source": "vendor/ingest/mammoth.browser.min.js"
+    },
+    {
+      "route": "/vendor/nacl.min.js",
+      "asset": "vendor/nacl.min.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 18456,
+      "sha256": "973cc5733cc7432e30ee4682098f413094f494bccf76a567c23908c5035ddbbc",
+      "source": "vendor/ingest/nacl.min.js"
+    },
+    {
+      "route": "/vendor/pdf.min.mjs",
+      "asset": "vendor/pdf.min.mjs",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 458904,
+      "sha256": "57456c8e0c81e46be31174b499ef77f2b9f5ee46d04412ba627320a36755d4c2",
+      "source": "vendor/ingest/pdf.min.mjs"
+    },
+    {
+      "route": "/vendor/pdf.worker.min.mjs",
+      "asset": "vendor/pdf.worker.min.mjs",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 1264342,
+      "sha256": "9536359f1b8367850d485731ca1d5e45c159a7b7a0912325e539937aa21ceb18",
+      "source": "vendor/ingest/pdf.worker.min.mjs"
+    },
+    {
+      "route": "/voicepack.js",
+      "asset": "voicepack.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 32556,
+      "sha256": "ab4d2b788c057494ccb217e3135ef3f199ba6ed2de3656fc239f839b3efe95e3",
+      "source": "src/voicepack.js"
+    }
+  ],
+  "total_bytes": 2735426
 }

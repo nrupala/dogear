@@ -4,7 +4,7 @@
 The bundled app and the web endpoint serve the SAME tree — this tool
 is the packaging step that keeps that true mechanically:
 
-  --write-manifest --app-dir <dogear/app tree>
+  --write-manifest --app-dir <dogear/app tree> [--routes-only]
       Build android/bundle-manifest.json from the app tree: every
       route the worker serves (build.py's tables), the voice pack
       (pack/PACK-PIN.json), and the generated pack manifest, each
@@ -12,6 +12,14 @@ is the packaging step that keeps that true mechanically:
       dist/build-manifest.json — a drift between the two fails the
       run, so the bundle can never quietly diverge from the tree
       that was gated and deployed.
+
+      Bundle variants are FIRST-CLASS, chosen by flag — never by
+      hand-editing the output:
+        full (default): routes + the whole voice pack bundled
+          (the beta.2 shape; models ride inside the APK).
+        --routes-only: routes only, ZERO /pack/ entries (the
+          beta.3/beta.4 shape; the shell ships alone and models
+          are in-app downloads under their own licences).
 
   --stage --manifest <bundle-manifest.json> --out <assets/web dir>
           (--from-dir <dogear/app tree> | --from-live <base url>)
@@ -100,7 +108,7 @@ def read_source(app: pathlib.Path, src: str) -> bytes:
     return (app / src).read_bytes()
 
 
-def write_manifest(app: pathlib.Path) -> dict:
+def write_manifest(app: pathlib.Path, routes_only: bool = False) -> dict:
     dist = json.loads((app / "dist" / "build-manifest.json").read_text())
     dist_assets = dist["assets"]
     entries = []
@@ -113,6 +121,15 @@ def write_manifest(app: pathlib.Path) -> dict:
         entries.append({"route": route, "asset": asset_rel(route),
                         "type": ctype, "bytes": len(raw), "sha256": digest,
                         "source": src})
+    if routes_only:
+        return {
+            "worker": dist["worker"],
+            "worker_sha256": dist["worker_sha256"],
+            "web_version": json.loads((app / "package.json").read_text())["version"],
+            "variant": "routes-only",
+            "entries": entries,
+            "total_bytes": sum(e["bytes"] for e in entries),
+        }
     # The generated pack manifest (byte-identical to the deployed one).
     pm = (app / "dist" / "pack" / "v1" / "pack-manifest.json").read_bytes()
     entries.append({"route": "/pack/v1/pack-manifest.json",
@@ -134,6 +151,7 @@ def write_manifest(app: pathlib.Path) -> dict:
         "worker": dist["worker"],
         "worker_sha256": dist["worker_sha256"],
         "web_version": json.loads((app / "package.json").read_text())["version"],
+        "variant": "full",
         "entries": entries,
         "total_bytes": sum(e["bytes"] for e in entries),
     }
@@ -169,6 +187,8 @@ def stage(manifest: dict, out: pathlib.Path, app: pathlib.Path | None,
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--write-manifest", action="store_true")
+    ap.add_argument("--routes-only", action="store_true",
+                    help="shell-only bundle variant: routes, zero /pack/ entries")
     ap.add_argument("--stage", action="store_true")
     ap.add_argument("--app-dir", type=pathlib.Path)
     ap.add_argument("--manifest", type=pathlib.Path)
@@ -180,10 +200,10 @@ def main() -> int:
     if args.write_manifest:
         if not args.app_dir or not args.out:
             ap.error("--write-manifest needs --app-dir and --out")
-        m = write_manifest(args.app_dir)
+        m = write_manifest(args.app_dir, routes_only=args.routes_only)
         args.out.write_text(json.dumps(m, indent=2) + "\n")
         print(f"manifest: {len(m['entries'])} entries, {m['total_bytes']} bytes, "
-              f"worker_sha256 {m['worker_sha256'][:16]}… -> {args.out}")
+              f"variant {m['variant']}, worker_sha256 {m['worker_sha256'][:16]}… -> {args.out}")
         return 0
     if args.stage:
         if not args.manifest or not args.out:
