@@ -48,23 +48,37 @@ import java.nio.charset.StandardCharsets;
  * feeds chunks to the service and records the reading place. The
  * foreground service keeps the process important; the page stays
  * live in the background and utterance callbacks keep advancing it.
+ *
+ * Beta.5 (app-first): the activity also hosts the NATIVE CONTROL
+ * BAR (see {@link NativeControlBar}) docked under the WebView, and
+ * is {@link PlayerCore}'s listener: snapshots render the bar,
+ * player events forward into the page's one event channel
+ * (window.__dogearSpeechEvent — the bridge dispatches them), and
+ * the mic-permission retry for native capture is completed here.
+ * Playback state lives in PlayerCore; this activity owns none.
  */
 public class MainActivity extends Activity implements SpeechService.EventSink {
 
     private static final int REQ_FILE_CHOOSER = 4102;
     private static final int REQ_NOTIFICATIONS = 4103;
     private static final int REQ_MIC = 4104;
+    private static final int REQ_MIC_CAPTURE = 4105;
     private static final String HOME_URL = "https://app.getdogear.app/";
 
     private WebView webView;
     private ValueCallback<Uri[]> fileCallback;
     private WebViewAssetLoader assetLoader;
     private PermissionRequest pendingPermissionRequest;
+    private PlayerCore playerCore;
+    private NativeControlBar controlBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0xFF081322));
+
+        playerCore = PlayerCoreProvider.get(this);
+        playerCore.setListener(coreListener);
 
         webView = new WebView(this);
         webView.setLayoutParams(new ViewGroup.LayoutParams(
@@ -77,7 +91,20 @@ public class MainActivity extends Activity implements SpeechService.EventSink {
         // in the guest (innerHeight stayed 915) before this shape.
         final android.widget.FrameLayout root = new android.widget.FrameLayout(this);
         root.setBackgroundColor(Color.rgb(8, 19, 34));
-        root.addView(webView);
+        // Beta.5 layout: [ WebView (weighted) | native control bar ]
+        // in a vertical column inside the inset-padded root. The bar
+        // is a standing native surface — it exists and answers
+        // touches whether or not the page has rendered.
+        android.widget.LinearLayout column = new android.widget.LinearLayout(this);
+        column.setOrientation(android.widget.LinearLayout.VERTICAL);
+        android.widget.FrameLayout webHolder = new android.widget.FrameLayout(this);
+        webHolder.addView(webView);
+        column.addView(webHolder, new android.widget.LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        controlBar = new NativeControlBar(this, playerCore);
+        column.addView(controlBar, new android.widget.LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(column);
         setContentView(root);
 
         // Edge-to-edge is forced at this targetSdk: without insets
@@ -293,6 +320,56 @@ public class MainActivity extends Activity implements SpeechService.EventSink {
         });
     }
 
+    /** PlayerCore's surface in this activity: snapshots render the
+     *  native bar; page events ride the SAME channel as speech
+     *  events (the bridge JS dispatches by "t"); toasts and the
+     *  mic-permission retry are the activity's own. Core callbacks
+     *  arrive on the main looper already (its production Poster). */
+    private final PlayerCore.Listener coreListener = new PlayerCore.Listener() {
+        @Override
+        public void onSnapshot(org.json.JSONObject snapshot) {
+            if (controlBar != null) controlBar.render(snapshot);
+        }
+
+        @Override
+        public void onPageEvent(org.json.JSONObject event) {
+            onSpeechEvent(event.toString());
+        }
+
+        @Override
+        public void onToast(final String message) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    android.widget.Toast.makeText(
+                            MainActivity.this, message,
+                            android.widget.Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+
+        @Override
+        public void onMicPermissionNeeded() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if (checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+                            == PackageManager.PERMISSION_GRANTED) {
+                        playerCore.talkStart(PlayerCore.Source.BAR);
+                        return;
+                    }
+                    try {
+                        requestPermissions(
+                                new String[]{Manifest.permission.RECORD_AUDIO},
+                                REQ_MIC_CAPTURE);
+                    } catch (Exception e) {
+                        playerCore.capturePermissionDenied();
+                    }
+                }
+            });
+        }
+    };
+
     private void requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= 33
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
@@ -309,6 +386,17 @@ public class MainActivity extends Activity implements SpeechService.EventSink {
                                            String[] permissions,
                                            int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_MIC_CAPTURE) {
+            boolean granted = grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            if (granted) {
+                // The capture that asked for this retries once.
+                playerCore.talkStart(PlayerCore.Source.BAR);
+            } else {
+                playerCore.capturePermissionDenied();
+            }
+            return;
+        }
         if (requestCode == REQ_MIC && pendingPermissionRequest != null) {
             PermissionRequest req = pendingPermissionRequest;
             pendingPermissionRequest = null;
@@ -349,6 +437,10 @@ public class MainActivity extends Activity implements SpeechService.EventSink {
         super.onResume();
         if (webView != null) webView.onResume();
         SpeechService.setEventSink(this);
+        if (playerCore != null) {
+            playerCore.setListener(coreListener);
+            if (controlBar != null) controlBar.render(playerCore.snapshot());
+        }
     }
 
     @Override
@@ -366,6 +458,7 @@ public class MainActivity extends Activity implements SpeechService.EventSink {
     @Override
     protected void onDestroy() {
         SpeechService.setEventSink(null);
+        if (playerCore != null) playerCore.setListener(null);
         if (webView != null) {
             webView.destroy();
             webView = null;

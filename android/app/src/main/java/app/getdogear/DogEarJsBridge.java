@@ -11,23 +11,24 @@ import android.webkit.JavascriptInterface;
 import java.lang.ref.WeakReference;
 
 /**
- * The page-side half of the DogEar speech bridge. Exposed to the web
- * app as {@code window.DogEarNative} — and ONLY there; no other page
- * is ever loaded into this WebView's shell origin flow. Calls forward
- * to {@link SpeechService}, which owns the device TTS engine from a
- * foreground service so reading survives the app being minimized or
- * the screen turning off.
+ * The page-side half of the DogEar native bridge. Exposed to the
+ * web app as {@code window.DogEarNative} — and ONLY there; no other
+ * page is ever loaded into this WebView's shell origin flow.
  *
- * Delivery: when the service is already running, calls go DIRECTLY
- * to its instance — chunk traffic must survive the app being
- * backgrounded, and Android's background-start restrictions can
- * refuse service starts from a backgrounded page, while an
- * in-process call to the running foreground service always works.
- * Only the first speak (no service yet — the user just pressed
- * Listen, app in the foreground) starts it, via the intent path.
+ * Beta.5 (app-first): the bridge no longer forwards transport calls
+ * straight to the speech service. Playback/voice STATE lives in
+ * {@link PlayerCore} — the one machine the native bar, the media
+ * session and this page all command — so the bridge routes the
+ * page's intents into the core (Source.PAGE), reports the session
+ * (document + the reader's own place record, read by the bridge JS
+ * at speak time) into it, and exposes the native capture + marks
+ * the page reflects. The speak path itself still goes directly to
+ * the running {@link SpeechService} instance (chunk traffic must
+ * survive backgrounding; see the service), and the service is the
+ * core's SpeechPort, so the two never disagree about the voice.
  *
- * Protocol: see native-bridge.js (the speechSynthesis transport shim)
- * and android/BACKGROUND-PLAYBACK.md.
+ * Protocol: see native-bridge.js (the speechSynthesis transport
+ * shim) and android/BACKGROUND-PLAYBACK.md + APP-FIRST-BETA5.md.
  */
 public class DogEarJsBridge {
     private final Context appContext;
@@ -38,6 +39,14 @@ public class DogEarJsBridge {
         this.activityRef = new WeakReference<>(
                 context instanceof Activity ? (Activity) context : null);
     }
+
+    private PlayerCore core() {
+        return PlayerCoreProvider.get(appContext);
+    }
+
+    // ------------------------------------------------------------------
+    // Battery exemption (reader hint; unchanged from beta.4)
+    // ------------------------------------------------------------------
 
     /** Battery-exemption state for the reader's one-time hint.
      *  Some phones (Samsung One UI app-sleep is the proven case)
@@ -79,6 +88,34 @@ public class DogEarJsBridge {
         });
     }
 
+    // ------------------------------------------------------------------
+    // Session + position (the bridge JS reports; the core persists)
+    // ------------------------------------------------------------------
+
+    /** A document opened in the reader. seedChunk/seedChunks come
+     *  from the reader's own place record when one exists. */
+    @JavascriptInterface
+    public void setSession(String docId, String title, int seedChunk, int seedChunks) {
+        core().sessionStarted(docId, title, seedChunk, seedChunks);
+    }
+
+    @JavascriptInterface
+    public void clearSession() {
+        core().sessionEnded();
+    }
+
+    /** The reader's place record at speak time: the chunk about to
+     *  be spoken and the document's chunk total. This is the
+     *  position truth the core persists on every chunk. */
+    @JavascriptInterface
+    public void noteChunk(int chunkIndex, int chunkTotal) {
+        core().utteranceSpoke(chunkIndex, chunkTotal);
+    }
+
+    // ------------------------------------------------------------------
+    // Speech transport (the shim's calls)
+    // ------------------------------------------------------------------
+
     @JavascriptInterface
     public void speak(int id, String text, double rate, String lang) {
         SpeechService a = SpeechService.active();
@@ -91,23 +128,17 @@ public class DogEarJsBridge {
 
     @JavascriptInterface
     public void pausePlayback() {
-        SpeechService a = SpeechService.active();
-        if (a != null) a.pauseFromBridge();
-        else SpeechService.pausePlayback(appContext);
+        core().pause(PlayerCore.Source.PAGE);
     }
 
     @JavascriptInterface
     public void resumePlayback() {
-        SpeechService a = SpeechService.active();
-        if (a != null) a.resumeFromBridge();
-        else SpeechService.resumePlayback(appContext);
+        core().resume(PlayerCore.Source.PAGE);
     }
 
     @JavascriptInterface
     public void stopPlayback() {
-        SpeechService a = SpeechService.active();
-        if (a != null) a.stopFromBridge();
-        else SpeechService.stopPlayback(appContext);
+        core().stop(PlayerCore.Source.PAGE);
     }
 
     @JavascriptInterface
@@ -119,8 +150,68 @@ public class DogEarJsBridge {
 
     @JavascriptInterface
     public void setNowPlaying(String title) {
+        core().sessionTitle(title);
         SpeechService a = SpeechService.active();
         if (a != null) a.setTitleFromBridge(title);
         else SpeechService.setNowPlaying(appContext, title);
+    }
+
+    // ------------------------------------------------------------------
+    // PlayerCore surface for the page (commands + reflection)
+    // ------------------------------------------------------------------
+
+    /** Idempotent player verbs from the page's own controls, so a
+     *  tap in the page and a tap on the native bar are the same
+     *  event in the same machine:
+     *  play | pause | resume | stop | save | continue | favorite |
+     *  next | prev */
+    @JavascriptInterface
+    public void playerCommand(String cmd) {
+        if (cmd == null) return;
+        PlayerCore c = core();
+        switch (cmd) {
+            case "play": c.play(PlayerCore.Source.PAGE); break;
+            case "pause": c.pause(PlayerCore.Source.PAGE); break;
+            case "resume": c.resume(PlayerCore.Source.PAGE); break;
+            case "stop": c.stop(PlayerCore.Source.PAGE); break;
+            case "save": c.savePlace(PlayerCore.Source.PAGE); break;
+            case "continue": c.continueSaved(PlayerCore.Source.PAGE); break;
+            case "favorite": c.toggleFavorite(PlayerCore.Source.PAGE); break;
+            case "next": c.next(PlayerCore.Source.PAGE); break;
+            case "prev": c.prev(PlayerCore.Source.PAGE); break;
+            default: break;
+        }
+    }
+
+    /** The current snapshot (same JSON the page receives as push
+     *  events) — a pull for the page's first render. */
+    @JavascriptInterface
+    public String getPlayerState() {
+        return core().snapshot().toString();
+    }
+
+    /** One document's marks: {favorite, position, bookmarks, tags,
+     *  notes} — the page renders them in its Marks panel. */
+    @JavascriptInterface
+    public String getMarks(String docId) {
+        return core().marksFor(docId).toString();
+    }
+
+    // ------------------------------------------------------------------
+    // Native Talk capture (the page's Talk button, second surface)
+    // ------------------------------------------------------------------
+
+    /** Begin native capture. PlayerCore silences the voice first;
+     *  the captured audio returns to the page as a player event
+     *  (window.__dogearPlayerEvent, {"t":"audio",...}) and the
+     *  page's unchanged voice engine transcribes it. */
+    @JavascriptInterface
+    public void startCapture() {
+        core().talkStart(PlayerCore.Source.PAGE);
+    }
+
+    @JavascriptInterface
+    public void stopCapture() {
+        core().talkStop();
     }
 }
