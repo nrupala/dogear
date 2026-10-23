@@ -227,6 +227,7 @@ public final class PlayerCore {
                         ev.put("docId", target.optString("docId", ""));
                         ev.put("chunk", target.optInt("chunk", 0));
                         ev.put("chunks", target.optInt("chunks", 0));
+                        ev.put("pinned", target.optBoolean("pinned", false));
                         ev.put("title", target.optString("title", ""));
                         emitPageEvent(ev);
                     } catch (Exception ignored) {}
@@ -277,6 +278,7 @@ public final class PlayerCore {
                 ev.put("docId", target.optString("docId", ""));
                 ev.put("chunk", target.optInt("chunk", 0));
                 ev.put("chunks", target.optInt("chunks", 0));
+                ev.put("pinned", target.optBoolean("pinned", false));
                 ev.put("title", target.optString("title", ""));
                 emitPageEvent(ev);
             } catch (Exception ignored) {}
