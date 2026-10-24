@@ -170,15 +170,18 @@ public final class MarksStore {
                 return rec;
             }
         }
+        // Find the most recently touched DOCUMENT first (either map),
+        // then apply the same pin-first rule to it: a cold Continue lands
+        // exactly where a warm Continue would — on the pin when the most
+        // recent document has one.
         String bestId = null;
         long bestAt = -1;
-        boolean bestPinned = false;
         java.util.Iterator<String> it = positions().keys();
         while (it.hasNext()) {
             String id = it.next();
             JSONObject rec = positions().optJSONObject(id);
             if (rec != null && rec.optLong("at", 0) > bestAt) {
-                bestAt = rec.optLong("at", 0); bestId = id; bestPinned = false;
+                bestAt = rec.optLong("at", 0); bestId = id;
             }
         }
         it = saved().keys();
@@ -186,15 +189,17 @@ public final class MarksStore {
             String id = it.next();
             JSONObject rec = saved().optJSONObject(id);
             if (rec != null && rec.optLong("at", 0) > bestAt) {
-                bestAt = rec.optLong("at", 0); bestId = id; bestPinned = true;
+                bestAt = rec.optLong("at", 0); bestId = id;
             }
         }
         if (bestId == null) return null;
-        JSONObject rec = bestPinned ? savedFor(bestId) : positionFor(bestId);
+        JSONObject rec = savedFor(bestId);
+        boolean pinned = rec != null;
+        if (rec == null) rec = positionFor(bestId);
         if (rec != null) {
             try {
                 rec.put("docId", bestId);
-                rec.put("pinned", bestPinned);
+                rec.put("pinned", pinned);
             } catch (Exception ignored) {}
         }
         return rec;

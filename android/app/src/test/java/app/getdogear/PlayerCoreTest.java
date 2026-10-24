@@ -265,6 +265,20 @@ public class PlayerCoreTest {
     }
 
     @Test
+    public void coldContinuePrefersThePinOfTheMostRecentDocument() {
+        speakChunk(4, 90);
+        core.savePlace(PlayerCore.Source.BAR); // pin at chunk 4
+        speakChunk(15, 90);                    // live reading moves far past it
+        core.sessionEnded();                   // cold: no live session
+        listener.pageEvents.clear();
+        core.continueSaved(PlayerCore.Source.BAR);
+        List<JSONObject> cont = listener.eventsOfType("continue");
+        assertEquals(1, cont.size());
+        assertEquals(4, cont.get(0).optInt("chunk")); // the pin, not part 16
+        assertTrue(cont.get(0).optBoolean("pinned"));
+    }
+
+    @Test
     public void continueWithNoSessionOffersTheMostRecentDocument() {
         speakChunk(6, 40);
         core.sessionEnded();
