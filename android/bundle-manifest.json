@@ -1,15 +1,15 @@
 {
   "worker": "dogear-app",
-  "worker_sha256": "428daa2044e82cd1cbae7603fc999c98bca30936e96089bb5a6ef7361dfb78a1",
-  "web_version": "1.4.0",
+  "worker_sha256": "9db06fcdf338587e560aced4f9e99c521cf2d55883c2e25f0abb53f0ca705571",
+  "web_version": "1.5.0",
   "variant": "routes-only",
   "entries": [
     {
       "route": "/",
       "asset": "index.html",
       "type": "text/html; charset=utf-8",
-      "bytes": 13569,
-      "sha256": "3c37ab760aa28839b2d10bfd77067f9fd84d0b51cd8648be7053a18a338a598a",
+      "bytes": 13985,
+      "sha256": "d1a610c8084c340e97c991120888a8fd253addeeff25b338376477a649d78054",
       "source": "src/index.html"
     },
     {
@@ -32,8 +32,8 @@
       "route": "/app.js",
       "asset": "app.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 60470,
-      "sha256": "2bae3d086fc161874eef30c3c353b54ca429c9861aff2362b2cb4cc2373004ba",
+      "bytes": 69178,
+      "sha256": "a3ff3480432450391f6af80493e70f17e9809a14979114c8cef8afdea2470493",
       "source": "src/app.js"
     },
     {
@@ -49,7 +49,7 @@
       "asset": "config.js",
       "type": "text/javascript; charset=utf-8",
       "bytes": 3417,
-      "sha256": "7dfc36b7db3fb8578955e57a92295d4f291c9ea3d2c1f04f848192dab2e27401",
+      "sha256": "e43741a43eb3a5b3df85eb4604a5213b28ef2e7915f18b2c4207c93910aafd25",
       "source": "src/config.js"
     },
     {
@@ -120,8 +120,8 @@
       "route": "/native-bridge.js",
       "asset": "native-bridge.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 9068,
-      "sha256": "b7cdc7a03d6dae7f22f2e15f7648e4542a5ac91f946bc302ae4900dab1bd004c",
+      "bytes": 12983,
+      "sha256": "98109912ba08997b541caedc7ef97b55d96dee78b127288961b2693c6a8ad219",
       "source": "src/native-bridge.js"
     },
     {
@@ -152,8 +152,8 @@
       "route": "/releases",
       "asset": "releases.html",
       "type": "text/html; charset=utf-8",
-      "bytes": 11008,
-      "sha256": "d53c6aa5c2d807850dcdb137a2b87c74821fa527e7830e56ee4827f463bf5e9e",
+      "bytes": 12480,
+      "sha256": "35fead9a3fe4044ec5d2fb2b90ee8798bbc9d9f4215afa9a783e26f65655236b",
       "source": "src/releases.html"
     },
     {
@@ -169,7 +169,7 @@
       "asset": "sw.js",
       "type": "text/javascript; charset=utf-8",
       "bytes": 3585,
-      "sha256": "41ad06c5eec53d3e63a29c2d853adbec4bfd846fe4540ed9b949b51302e4e813",
+      "sha256": "c0bfa8fbf1000bbf3134c1ebad843a7f5db02bc14c300453d2c83d195935c31c",
       "source": "src/sw.js"
     },
     {
@@ -221,5 +221,5 @@
       "source": "src/voicepack.js"
     }
   ],
-  "total_bytes": 2735426
+  "total_bytes": 2749937
 }
