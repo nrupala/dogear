@@ -16,6 +16,19 @@
  * working exactly as written — the engine still owns the position;
  * the service only speaks and reports utterance lifecycle back.
  *
+ * Beta.5 (app-first): state moved OUT of this shim. The native
+ * PlayerCore is the one state machine; this file now also
+ *   - reports the session (registerReader carries the document id
+ *     + the reader's place-record key) and, at every speak(), the
+ *     place record the engine just wrote ({i, n}) — that record is
+ *     the position truth the core persists natively;
+ *   - dispatches the core's player events (state snapshots,
+ *     continue, captured audio, capture errors, marks changes)
+ *     from the one event channel into the app's handlers.
+ * The shim's own current/pausedFlag remain ONLY as the transport's
+ * local mirror for Chrome-shaped semantics (N6), never as a second
+ * authority: transport commands forward to the core, which decides.
+ *
  * The shell also bundles this exact file as an APK asset and injects
  * it when the served page did not load it itself (the two deliveries
  * are the same bytes; the __dogearBridgeShell flag prevents a double
@@ -33,6 +46,7 @@
   var pausedFlag = false;
   var voicesChangedHandler = null;
   var voicesListeners = [];
+  var sessionPlaceKey = null; // localStorage key of the reader's place record
 
   var fakeVoice = {
     name: 'Device voice',
@@ -53,6 +67,23 @@
     }
   }
 
+  /* The engine writes its place record ({i, n}) BEFORE speaking a
+   * chunk (reader-core savePos runs at the head of its speak()), so
+   * at shim-speak time the record names the chunk being spoken.
+   * Report it to the core: native position truth, no engine change. */
+  function reportPlace() {
+    if (!sessionPlaceKey || typeof NATIVE.noteChunk !== 'function') return;
+    try {
+      var raw = null;
+      try { raw = localStorage.getItem(sessionPlaceKey); } catch (e) {}
+      if (!raw) return;
+      var rec = JSON.parse(raw);
+      if (rec && typeof rec.i === 'number') {
+        NATIVE.noteChunk(rec.i, typeof rec.n === 'number' ? rec.n : 0);
+      }
+    } catch (e) {}
+  }
+
   var shim = {
     getVoices: function () { return [fakeVoice]; },
     speak: function (utt) {
@@ -66,6 +97,7 @@
       };
       current = rec;
       pausedFlag = false;
+      reportPlace();
       try { NATIVE.speak(rec.id, rec.text, rec.rate, rec.lang); }
       catch (e) { fireError(rec); }
     },
@@ -105,7 +137,7 @@
     },
   });
 
-  /* ------- native -> JS: utterance lifecycle + media controls ------ */
+  /* ------- native -> JS: utterance lifecycle + player events ------ */
   window.__dogearSpeechEvent = function (json) {
     var ev = null;
     try { ev = JSON.parse(json); } catch (e) { return; }
@@ -122,6 +154,20 @@
       }
     } else if (ev.t === 'control') {
       handleControl(ev.action);
+    } else if (ev.t === 'state' || ev.t === 'continue' || ev.t === 'audio' ||
+               ev.t === 'audioError' || ev.t === 'marks') {
+      // PlayerCore events: the app owns these (state reflection,
+      // continue = open + seek, captured audio for its engine,
+      // capture errors, marks re-render). Relay, never interpret.
+      var app = window.DogEarApp;
+      if (!app) return;
+      try {
+        if (ev.t === 'state' && typeof app.onPlayerState === 'function') app.onPlayerState(ev);
+        else if (ev.t === 'continue' && typeof app.onContinueEvent === 'function') app.onContinueEvent(ev);
+        else if (ev.t === 'audio' && typeof app.onCapturedAudio === 'function') app.onCapturedAudio(ev);
+        else if (ev.t === 'audioError' && typeof app.onCaptureError === 'function') app.onCaptureError(ev);
+        else if (ev.t === 'marks' && typeof app.onMarksChanged === 'function') app.onMarksChanged(ev);
+      } catch (e) {}
     }
   };
 
@@ -157,6 +203,13 @@
       if (reader && st === 'paused') {
         try { reader.play(); } catch (e) {}
       }
+    } else if (action === 'play') {
+      // From the native bar / media session with a live session:
+      // start (or resume) this reader. play() from idle starts at
+      // the reader's held place; from paused it resumes.
+      if (reader && st !== 'playing') {
+        try { reader.play(); } catch (e) {}
+      }
     } else if (action === 'playpause') {
       // Legacy event name: with state known it is the idempotent
       // form (pause if playing, resume if paused); without state
@@ -175,9 +228,34 @@
 
   window.DogEarBridge = {
     shell: true,
-    registerReader: function (r, title) {
+    registerReader: function (r, title, meta) {
       reader = r || null;
       try { NATIVE.setNowPlaying(title ? String(title) : 'DogEar'); } catch (e) {}
+      // Beta.5: hand the core the session. meta = { docId, placeKey }
+      // (older pages call with two args — the session report is
+      // then skipped and the core simply has no document context).
+      sessionPlaceKey = (meta && meta.placeKey) ? String(meta.placeKey) : null;
+      if (typeof NATIVE.setSession === 'function') {
+        try {
+          if (r && meta && meta.docId) {
+            var seedI = -1, seedN = 0;
+            if (sessionPlaceKey) {
+              try {
+                var raw = localStorage.getItem(sessionPlaceKey);
+                if (raw) {
+                  var rec = JSON.parse(raw);
+                  if (rec && typeof rec.i === 'number') seedI = rec.i;
+                  if (rec && typeof rec.n === 'number') seedN = rec.n;
+                }
+              } catch (e) {}
+            }
+            NATIVE.setSession(String(meta.docId),
+              title ? String(title) : '', seedI, seedN);
+          } else if (!r && typeof NATIVE.clearSession === 'function') {
+            NATIVE.clearSession();
+          }
+        } catch (e) {}
+      }
     },
   };
 

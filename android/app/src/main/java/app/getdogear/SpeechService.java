@@ -43,8 +43,15 @@ import java.util.Locale;
  * Pause semantics: Android TTS has no mid-utterance pause, so pause
  * stops the voice mid-chunk and resume re-speaks the current chunk
  * from its start (chunks are ~240 chars — a sentence or two).
+ *
+ * Beta.5 (app-first): this service is the VOICE BOX only. The one
+ * playback state machine is {@link PlayerCore}; this service takes
+ * its transport orders from the core (it is the core's SpeechPort),
+ * reports utterance lifecycle, and its media session / notification
+ * / focus-loss paths command the core like every other surface —
+ * no private state decides anything user-visible alone.
  */
-public class SpeechService extends Service {
+public class SpeechService extends Service implements PlayerCore.SpeechPort {
 
     /** Receives JSON event strings destined for the page. */
     public interface EventSink {
@@ -84,6 +91,12 @@ public class SpeechService extends Service {
     private int state = STATE_IDLE;
     private boolean sessionActive = false;
     private boolean foregroundStarted = false;
+    // Whether the current chunk is audibly sounding right now
+    // (utterance started, not yet done/stopped). Resume consults
+    // it: a resume that lands while the chunk is already sounding
+    // (e.g. the core's media resume and the page's echo of it
+    // arriving back to back) must not restart the chunk.
+    private boolean chunkSounding = false;
 
     // The single outstanding chunk (the shim serializes utterances).
     private Integer currentId = null;
@@ -215,12 +228,14 @@ public class SpeechService extends Service {
         }
         mediaSession = new MediaSessionCompat(this, "DogEarSession");
         mediaSession.setCallback(new MediaSessionCompat.Callback() {
-            @Override public void onPlay() { controlResume(); }
-            @Override public void onPause() { controlPause(); }
-            @Override public void onSkipToNext() { emitControl("next"); }
-            @Override public void onSkipToPrevious() { emitControl("prev"); }
-            @Override public void onStop() { controlStop(); }
+            @Override public void onPlay() { core().resume(PlayerCore.Source.MEDIA); }
+            @Override public void onPause() { core().pause(PlayerCore.Source.MEDIA); }
+            @Override public void onSkipToNext() { core().next(PlayerCore.Source.MEDIA); }
+            @Override public void onSkipToPrevious() { core().prev(PlayerCore.Source.MEDIA); }
+            @Override public void onStop() { core().stop(PlayerCore.Source.MEDIA); }
         });
+        // The core's SpeechPort: transport orders arrive here.
+        PlayerCoreProvider.get(this).attachSpeech(this);
         tts = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status) {
@@ -236,11 +251,13 @@ public class SpeechService extends Service {
                 if (ttsReady) {
                     engine.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                         @Override public void onStart(String utteranceId) {
+                            chunkSounding = true;
                             Integer id = parseId(utteranceId);
                             if (id != null) emit("{\"t\":\"start\",\"id\":" + id + "}");
                         }
 
                         @Override public void onDone(String utteranceId) {
+                            chunkSounding = false;
                             Integer id = parseId(utteranceId);
                             if (id != null && id.equals(currentId)) {
                                 currentId = null;
@@ -259,6 +276,7 @@ public class SpeechService extends Service {
                         }
 
                         @Override public void onError(String utteranceId) {
+                            chunkSounding = false;
                             Integer id = parseId(utteranceId);
                             if (id != null && id.equals(currentId)) {
                                 currentId = null;
@@ -344,6 +362,15 @@ public class SpeechService extends Service {
 
     private void resumeChunk() {
         if (currentId != null) {
+            if (chunkSounding) {
+                // Already sounding (a duplicate resume — the core's
+                // command and the page's echo of it): restarting
+                // the chunk would be the audible stutter of the old
+                // multi-machine design. Hold state, do not re-speak.
+                state = STATE_PLAYING;
+                refreshUi();
+                return;
+            }
             state = STATE_PLAYING;
             focusPaused = false;
             cancelIdleTeardown();
@@ -351,6 +378,35 @@ public class SpeechService extends Service {
             speakNow();
             refreshUi();
         }
+    }
+
+    // ------------------------------------------------------------------
+    // PlayerCore SpeechPort (transport orders from the one machine)
+    // ------------------------------------------------------------------
+
+    private PlayerCore core() {
+        return PlayerCoreProvider.get(this);
+    }
+
+    @Override
+    public void pauseVoice() {
+        idleHandler.post(new Runnable() {
+            @Override public void run() { userPause(); }
+        });
+    }
+
+    @Override
+    public void resumeVoice() {
+        idleHandler.post(new Runnable() {
+            @Override public void run() { resumeChunk(); }
+        });
+    }
+
+    @Override
+    public void stopVoice() {
+        idleHandler.post(new Runnable() {
+            @Override public void run() { lightStop(); }
+        });
     }
 
     private void skipChunk() {
@@ -378,13 +434,13 @@ public class SpeechService extends Service {
                         intent.getStringExtra("lang"));
                 break;
             case ACTION_PAUSE:
-                userPause();
+                core().pause(PlayerCore.Source.PAGE);
                 break;
             case ACTION_RESUME:
-                resumeChunk();
+                core().resume(PlayerCore.Source.PAGE);
                 break;
             case ACTION_STOP_PLAYBACK:
-                lightStop();
+                core().stop(PlayerCore.Source.PAGE);
                 break;
             case ACTION_SKIP_CURRENT:
                 skipChunk();
@@ -393,19 +449,19 @@ public class SpeechService extends Service {
                 applyTitle(intent.getStringExtra("title"));
                 break;
             case ACTION_CTRL_PAUSE:
-                controlPause();
+                core().pause(PlayerCore.Source.MEDIA);
                 break;
             case ACTION_CTRL_RESUME:
-                controlResume();
+                core().resume(PlayerCore.Source.MEDIA);
                 break;
             case ACTION_CTRL_NEXT:
-                emitControl("next");
+                core().next(PlayerCore.Source.MEDIA);
                 break;
             case ACTION_CTRL_PREV:
-                emitControl("prev");
+                core().prev(PlayerCore.Source.MEDIA);
                 break;
             case ACTION_CTRL_STOP:
-                controlStop();
+                core().stop(PlayerCore.Source.MEDIA);
                 break;
             default:
                 break;
@@ -427,6 +483,7 @@ public class SpeechService extends Service {
     public void onDestroy() {
         destroyed = true;
         if (activeInstance == this) activeInstance = null;
+        PlayerCoreProvider.get(this).detachSpeech(this);
         teardownTts();
         if (mediaSession != null) {
             mediaSession.setActive(false);
@@ -471,6 +528,7 @@ public class SpeechService extends Service {
 
     /** Pause that originates anywhere: stop the voice, keep the chunk. */
     private void userPause() {
+        chunkSounding = false;
         if (ttsReady && tts != null) {
             try { tts.stop(); } catch (Exception ignored) {}
         }
@@ -498,6 +556,7 @@ public class SpeechService extends Service {
     };
 
     private void lightStop() {
+        chunkSounding = false;
         if (ttsReady && tts != null) {
             try { tts.stop(); } catch (Exception ignored) {}
         }
@@ -546,40 +605,14 @@ public class SpeechService extends Service {
 
     // ------------------------------------------------------------------
     // Media controls (notification / lock screen / media buttons)
+    //
+    // Beta.5: these command PlayerCore like every other surface
+    // (see the media-session callback + ACTION_CTRL_* intents).
+    // The core silences the voice through the SpeechPort and tells
+    // the page; a page that is unreachable still gets a working
+    // resume because the core's resume re-speaks the held chunk
+    // directly rather than depending on the page's echo.
     // ------------------------------------------------------------------
-
-    private void controlPause() {
-        boolean wasPlaying = (state == STATE_PLAYING);
-        userPause(); // silence first — the tap means "quiet, now"
-        if (wasPlaying) emitControl("pause"); // explicit, idempotent
-    }
-
-    private void controlResume() {
-        if (currentId == null) return;
-        if (eventSink != null) {
-            // Preferred path: the page's reader resumes, and its
-            // resume() call re-enters this service as ACTION_RESUME.
-            emitControl("resume");
-        } else {
-            // The page is unreachable (activity gone): re-speak the
-            // current chunk directly rather than leaving the user
-            // pressing a dead button.
-            state = STATE_PLAYING;
-            focusPaused = false;
-            cancelIdleTeardown();
-            ensureForeground();
-            requestFocus();
-            speakNow();
-        }
-    }
-
-    private void controlStop() {
-        if (ttsReady && tts != null) {
-            try { tts.stop(); } catch (Exception ignored) {}
-        }
-        emitControl("stop");
-        teardown();
-    }
 
     // ------------------------------------------------------------------
     // Audio focus
@@ -590,7 +623,9 @@ public class SpeechService extends Service {
                 @Override
                 public void onAudioFocusChange(int change) {
                     if (change == AudioManager.AUDIOFOCUS_LOSS) {
-                        controlPause();
+                        // Permanent loss: a core pause, so the page
+                        // and every surface agree the reader paused.
+                        core().focusLost();
                     } else if (change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT
                             || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
                         if (state == STATE_PLAYING && currentId != null) {
@@ -747,10 +782,6 @@ public class SpeechService extends Service {
     private void emit(String json) {
         EventSink sink = eventSink;
         if (sink != null) sink.onSpeechEvent(json);
-    }
-
-    private void emitControl(String action) {
-        emit("{\"t\":\"control\",\"action\":\"" + action + "\"}");
     }
 
     private static Integer parseId(String utteranceId) {
