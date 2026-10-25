@@ -74,7 +74,7 @@ artifacts land on the workflow run):
 
 Verify before you ship: `python3 tools/verify.py` (tree) and
 `python3 tools/verify.py --zips` (after a build). Smoke test:
-`cd tests && npm ci && node smoke.test.mjs` (jsdom; drives the real
+`cd tests && npm install && node smoke.test.mjs` (jsdom; drives the real
 payload through the production message protocol).
 
 Load unpacked for a manual check: Chrome/Edge → Extensions → Developer
