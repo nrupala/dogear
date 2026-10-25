@@ -29,6 +29,15 @@
  * local mirror for Chrome-shaped semantics (N6), never as a second
  * authority: transport commands forward to the core, which decides.
  *
+ * 1.1.0 (voice-quality program, R2): the shim now SERIALIZES
+ * speech the way Chrome does — one utterance dispatched to the
+ * QUEUE_FLUSH native service at a time, the rest queued here —
+ * and carries a per-utterance stall guard (re-dispatch once,
+ * then a logged transport defect via DogEarBridge.defects()).
+ * Before this, back-to-back speaks flushed each other
+ * mid-sentence and the shim's single `current` discarded the
+ * other pieces' lifecycle events entirely. Tests N13–N15.
+ *
  * The shell also bundles this exact file as an APK asset and injects
  * it when the served page did not load it itself (the two deliveries
  * are the same bytes; the __dogearBridgeShell flag prevents a double
@@ -42,7 +51,21 @@
   if (!NATIVE) return; // plain browser: nothing to do, ever
 
   var nextId = 1;
-  var current = null; // { id, utt, text, rate, lang, started }
+  var current = null; // { id, utt, text, rate, lang, started, retried }
+  var queue = [];     // utterances waiting behind `current` (beta.6)
+  /* 1.1.0 hardening (F-B5-2): the last naturally-retired utterance
+     and whether it was the document's final chunk. The service
+     RETAINS a finished chunk as its held chunk, so a resume that
+     lands in the boundary gap re-sounds THIS utterance — its
+     'start' re-adopts the record below so the eventual 'end'
+     still advances the engine; and a cancel that follows the
+     final chunk's retirement is the engine's completion stopAll,
+     routed to the core through the explicit stop door (see
+     cancel()). */
+  var lastRetired = null;
+  var lastRetireWasFinal = false;
+  var defects = [];   // transport stalls that never recovered (beta.6)
+  var stallTimer = null;
   var pausedFlag = false;
   var voicesChangedHandler = null;
   var voicesListeners = [];
@@ -67,11 +90,116 @@
     }
   }
 
+  /* ------- beta.6: queue serialization + utterance stall guard ---
+     WHY: the native SpeechService speaks QUEUE_FLUSH with one
+     current slot, while Chrome's speechSynthesis QUEUES. A
+     caller that speaks several utterances back-to-back (the old
+     answer speaker did exactly that) had each piece flush the
+     one before it — speech cut mid-sentence, and the shim's
+     single `current` discarded the other pieces' lifecycle
+     events, so nothing could even account for the loss. The
+     shim now serializes the way Chrome does: one utterance is
+     dispatched to the service at a time; the rest wait here,
+     and lifecycle events reconcile 1:1 with utterances.
+
+     The stall guard is the transport half of gate finding
+     F-B5-2 (an utterance that starts — or is dispatched — and
+     never sounds again): a dispatched utterance that produces
+     neither start/end/error inside its window is re-dispatched
+     ONCE (native stop + the same id/text); a second window of
+     silence declares it stalled — the defect is logged in
+     `defects` and the utterance's error fires, so its consumer
+     recovers instead of waiting forever. While the transport
+     is paused the window simply re-arms: paused speech is
+     suspended, not stalled. The estimator mirrors
+     speaker.js's (same floor/cap/margin, deliberately
+     duplicated — this file must stand alone in the shell). */
+  function stallWindowFor(rec) {
+    var est = (String(rec.text || '').length / (9 * (rec.rate || 1))) * 1000;
+    /* +6 s of slack over the speaker's identical estimator
+       (device-proven race, 1.1.0 exercise ASK1): when the
+       completing speaker drives an utterance it owns the
+       first recovery — if this guard's window equals the
+       speaker's, both fire together and the guard's
+       re-dispatch collides with the speaker's cancel/re-speak.
+       The guard is the READER path's watchdog (reader-core has
+       no completion watchdog of its own); for speaker-driven
+       utterances it is the backstop, and a backstop fires
+       second. */
+    return Math.min(66000, Math.max(4000, est + 2500 + 6000));
+  }
+  function armStall(rec) {
+    disarmStall();
+    try {
+      stallTimer = setTimeout(function () { onStallWindow(rec); },
+        stallWindowFor(rec));
+    } catch (e) { stallTimer = null; }
+  }
+  function disarmStall() {
+    if (stallTimer !== null) {
+      try { clearTimeout(stallTimer); } catch (e) {}
+      stallTimer = null;
+    }
+  }
+  function onStallWindow(rec) {
+    stallTimer = null;
+    if (!current || current.id !== rec.id) return;
+    if (pausedFlag) { armStall(rec); return; }
+    if (!rec.retried) {
+      rec.retried = true;
+      try { NATIVE.stopPlayback(); } catch (e) {}
+      try { NATIVE.speak(rec.id, rec.text, rec.rate, rec.lang); }
+      catch (e) { declareStalled(rec); return; }
+      armStall(rec);
+      return;
+    }
+    declareStalled(rec);
+  }
+  function declareStalled(rec) {
+    defects.push({
+      kind: 'utterance-stalled',
+      id: rec.id,
+      chars: String(rec.text || '').length,
+      at: Date.now(),
+    });
+    try {
+      console.warn('DogEar bridge: utterance ' + rec.id + ' stalled (' +
+        String(rec.text || '').length + ' chars, re-dispatch failed)');
+    } catch (e) {}
+    if (current && current.id === rec.id) {
+      var r = current; current = null; pausedFlag = false;
+      lastRetired = r;
+      lastRetireWasFinal = (typeof r.i === 'number' &&
+        typeof r.n === 'number' && r.n > 0 && r.i === r.n - 1);
+      fireError(r);
+      pumpQueue();
+    }
+  }
+  function dispatch(rec) {
+    lastRetired = null;
+    lastRetireWasFinal = false;
+    current = rec;
+    pausedFlag = false;
+    reportPlace(rec);
+    try { NATIVE.speak(rec.id, rec.text, rec.rate, rec.lang); }
+    catch (e) {
+      current = null;
+      fireError(rec);
+      pumpQueue();
+      return;
+    }
+    armStall(rec);
+  }
+  function pumpQueue() {
+    if (current || !queue.length) return;
+    dispatch(queue.shift());
+  }
+
   /* The engine writes its place record ({i, n}) BEFORE speaking a
    * chunk (reader-core savePos runs at the head of its speak()), so
    * at shim-speak time the record names the chunk being spoken.
    * Report it to the core: native position truth, no engine change. */
-  function reportPlace() {
+  function reportPlace(forRec) {
     if (!sessionPlaceKey || typeof NATIVE.noteChunk !== 'function') return;
     try {
       var raw = null;
@@ -79,6 +207,18 @@
       if (!raw) return;
       var rec = JSON.parse(raw);
       if (rec && typeof rec.i === 'number') {
+        // Stamp the utterance record with the chunk it carries:
+        // the completion door keys on it (1.1.0). ONLY when the
+        // record is fresh — the engine writes it in the same
+        // synchronous stack as its speak(), so a fresh record
+        // names THIS utterance; a stale one belongs to an older
+        // reader chunk and must not stamp an answer utterance
+        // that happens to dispatch later.
+        if (forRec && typeof rec.t === 'number' &&
+            Math.abs(Date.now() - rec.t) <= 250) {
+          forRec.i = rec.i;
+          forRec.n = typeof rec.n === 'number' ? rec.n : 0;
+        }
         NATIVE.noteChunk(rec.i, typeof rec.n === 'number' ? rec.n : 0);
       }
     } catch (e) {}
@@ -94,16 +234,30 @@
         rate: (utt && utt.rate) || 1,
         lang: (utt && utt.voice && utt.voice.lang) || fakeVoice.lang,
         started: false,
+        retried: false,
       };
-      current = rec;
-      pausedFlag = false;
-      reportPlace();
-      try { NATIVE.speak(rec.id, rec.text, rec.rate, rec.lang); }
-      catch (e) { fireError(rec); }
+      /* Chrome queues; the native service flushes. Serialize
+         here so the two semantics meet (beta.6, Cause C). */
+      if (current) { queue.push(rec); return; }
+      dispatch(rec);
     },
     cancel: function () {
+      queue.length = 0;
+      disarmStall();
       current = null;
       pausedFlag = false;
+      lastRetired = null;
+      /* Completion door (1.1.0): reader-core signals a finished
+         document ONLY by retiring its final chunk and then
+         cancelling (stopAll(true)). That cancel — and no other —
+         is a session end, so it reaches the core through the
+         explicit stop verb; every other cancel is a routine
+         engine reset and stays voice-only (the bridge's
+         stopPlayback no longer enters the core at all). */
+      if (lastRetireWasFinal) {
+        lastRetireWasFinal = false;
+        try { NATIVE.playerCommand('stop'); } catch (e) {}
+      }
       try { NATIVE.stopPlayback(); } catch (e) {}
     },
     pause: function () {
@@ -129,7 +283,9 @@
   };
   Object.defineProperties(shim, {
     speaking: { get: function () { return !!current; } },
-    pending: { get: function () { return !!(current && !current.started); } },
+    pending: { get: function () {
+      return !!((current && !current.started) || queue.length);
+    } },
     paused: { get: function () { return pausedFlag; } },
     onvoiceschanged: {
       get: function () { return voicesChangedHandler; },
@@ -144,13 +300,32 @@
     if (!ev) return;
     if (ev.t === 'start') {
       if (current && ev.id === current.id) current.started = true;
+      else if (!current && lastRetired && ev.id === lastRetired.id) {
+        /* Re-adoption (1.1.0): the service re-sounded its held
+           chunk for a boundary resume. The record lives again so
+           this utterance's end advances the engine exactly once. */
+        current = lastRetired;
+        lastRetired = null;
+        lastRetireWasFinal = false;
+        current.started = true;
+        current.retried = false;
+        armStall(current);
+      }
     } else if (ev.t === 'end') {
       if (current && ev.id === current.id) {
-        var r = current; current = null; pausedFlag = false; fireEnd(r);
+        var r = current; current = null; pausedFlag = false;
+        lastRetired = r;
+        lastRetireWasFinal = (typeof r.i === 'number' &&
+          typeof r.n === 'number' && r.n > 0 && r.i === r.n - 1);
+        disarmStall(); fireEnd(r); pumpQueue();
       }
     } else if (ev.t === 'error') {
       if (current && ev.id === current.id) {
-        var r2 = current; current = null; pausedFlag = false; fireError(r2);
+        var r2 = current; current = null; pausedFlag = false;
+        lastRetired = r2;
+        lastRetireWasFinal = (typeof r2.i === 'number' &&
+          typeof r2.n === 'number' && r2.n > 0 && r2.i === r2.n - 1);
+        disarmStall(); fireError(r2); pumpQueue();
       }
     } else if (ev.t === 'control') {
       handleControl(ev.action);
@@ -174,14 +349,17 @@
   function skipNext() {
     if (!current) return;
     var r = current; current = null; pausedFlag = false;
+    disarmStall();
     try { NATIVE.skipCurrent(); } catch (e) {}
     fireEnd(r); // the engine advances and speaks the next chunk
   }
   function skipPrev() {
     if (!current) return;
-    var r = current; r.started = false;
+    var r = current; r.started = false; r.retried = false;
+    disarmStall();
     try { NATIVE.skipCurrent(); } catch (e) {}
-    try { NATIVE.speak(r.id, r.text, r.rate, r.lang); } catch (e) { fireError(r); }
+    try { NATIVE.speak(r.id, r.text, r.rate, r.lang); } catch (e) { fireError(r); return; }
+    armStall(r);
   }
 
   var reader = null;
@@ -228,6 +406,11 @@
 
   window.DogEarBridge = {
     shell: true,
+    /* beta.6: the transport defect log — stalls the guard
+       could not recover, each with the utterance id and size.
+       A non-empty log after a session means speech was lost
+       somewhere the accounting can point at. */
+    defects: function () { return defects.slice(); },
     registerReader: function (r, title, meta) {
       reader = r || null;
       try { NATIVE.setNowPlaying(title ? String(title) : 'DogEar'); } catch (e) {}

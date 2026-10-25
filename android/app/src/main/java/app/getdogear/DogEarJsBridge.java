@@ -138,7 +138,20 @@ public class DogEarJsBridge {
 
     @JavascriptInterface
     public void stopPlayback() {
-        core().stop(PlayerCore.Source.PAGE);
+        // 1.1.0 HARDENING (F-B5-2; REPROOF-BETA5-CI cycle 18: a
+        // Resume press acted as Stop): this verb sits behind the
+        // page synth's cancel() — a ROUTINE engine reset that
+        // reader-core calls on every play-from-idle, rate change
+        // and stopAll. It must never carry user-Stop authority.
+        // Voice-only now (the service's lightStop: voice stops,
+        // session and core untouched). The core's stop doors are
+        // the explicit ones only — the bar's Stop button, the
+        // media session's stop, and the page's
+        // playerCommand("stop").
+        SpeechService a = SpeechService.active();
+        if (a != null) a.stopFromBridge();
+        else android.util.Log.w("DogEarBridge",
+                "stopPlayback with no live speech service: nothing to silence, core untouched");
     }
 
     @JavascriptInterface

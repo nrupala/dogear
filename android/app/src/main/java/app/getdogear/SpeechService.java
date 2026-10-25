@@ -260,7 +260,18 @@ public class SpeechService extends Service implements PlayerCore.SpeechPort {
                             chunkSounding = false;
                             Integer id = parseId(utteranceId);
                             if (id != null && id.equals(currentId)) {
-                                currentId = null;
+                                // 1.1.0 HARDENING (F-B5-2, the dead-
+                                // resume face): RETAIN the finished
+                                // chunk as the held chunk. Clearing
+                                // it here meant a pause landing in
+                                // the boundary gap (end emitted, the
+                                // page not yet advanced) left
+                                // resumeChunk() holding nothing — it
+                                // silently no-opped while every
+                                // surface reported "playing", and
+                                // playback never revived. speakChunk
+                                // replaces the held chunk; lightStop
+                                // and teardown still clear it.
                                 emit("{\"t\":\"end\",\"id\":" + id + "}");
                             }
                         }
@@ -377,6 +388,12 @@ public class SpeechService extends Service implements PlayerCore.SpeechPort {
             requestFocus();
             speakNow();
             refreshUi();
+        } else {
+            // Loud, never silent (Gate 12): a resume with nothing
+            // held means an earlier stop cleared the session — the
+            // surfaces must not claim "playing" over this.
+            android.util.Log.w("DogEarSpeech",
+                    "resumeChunk: nothing held (state=" + state + ") — resume is a no-op");
         }
     }
 
@@ -440,7 +457,9 @@ public class SpeechService extends Service implements PlayerCore.SpeechPort {
                 core().resume(PlayerCore.Source.PAGE);
                 break;
             case ACTION_STOP_PLAYBACK:
-                core().stop(PlayerCore.Source.PAGE);
+                // 1.1.0: voice-only, like the bridge verb (see
+                // DogEarJsBridge.stopPlayback) — never a core stop.
+                stopVoice();
                 break;
             case ACTION_SKIP_CURRENT:
                 skipChunk();

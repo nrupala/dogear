@@ -1,15 +1,15 @@
 {
   "worker": "dogear-app",
-  "worker_sha256": "428daa2044e82cd1cbae7603fc999c98bca30936e96089bb5a6ef7361dfb78a1",
-  "web_version": "1.4.0",
+  "worker_sha256": "83293d98c8f755504d168c623fe95c7187fad457eea7c51778f8951f9cc07106",
+  "web_version": "1.6.0",
   "variant": "routes-only",
   "entries": [
     {
       "route": "/",
       "asset": "index.html",
       "type": "text/html; charset=utf-8",
-      "bytes": 13569,
-      "sha256": "3c37ab760aa28839b2d10bfd77067f9fd84d0b51cd8648be7053a18a338a598a",
+      "bytes": 14059,
+      "sha256": "92b0e79c3502a0b4851cbe3510102bbd0d08f57f996354355d8bca970091eb06",
       "source": "src/index.html"
     },
     {
@@ -24,16 +24,16 @@
       "route": "/app.css",
       "asset": "app.css",
       "type": "text/css; charset=utf-8",
-      "bytes": 4506,
-      "sha256": "4e6eb6dafe4f3a1249950379ffc5123e61274218cf7f535293ebfb9e4294a5d1",
+      "bytes": 5700,
+      "sha256": "6d16e4f3da1c7ff190752ddc6bec05badc20046a312f12b88dc4d4974bef9963",
       "source": "src/app.css"
     },
     {
       "route": "/app.js",
       "asset": "app.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 60470,
-      "sha256": "2bae3d086fc161874eef30c3c353b54ca429c9861aff2362b2cb4cc2373004ba",
+      "bytes": 75645,
+      "sha256": "fecc8c1d14fd1ff2cf137a18b48ec608612fbaf211e2a3b34ecc44b47de75fbb",
       "source": "src/app.js"
     },
     {
@@ -49,7 +49,7 @@
       "asset": "config.js",
       "type": "text/javascript; charset=utf-8",
       "bytes": 3417,
-      "sha256": "7dfc36b7db3fb8578955e57a92295d4f291c9ea3d2c1f04f848192dab2e27401",
+      "sha256": "ae1e7148e34943807be95eda8905c6486449acac4dc4fe05b8090b2204cc3075",
       "source": "src/config.js"
     },
     {
@@ -120,8 +120,8 @@
       "route": "/native-bridge.js",
       "asset": "native-bridge.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 9068,
-      "sha256": "b7cdc7a03d6dae7f22f2e15f7648e4542a5ac91f946bc302ae4900dab1bd004c",
+      "bytes": 20823,
+      "sha256": "ecb41b09bec68f3b49f1f28aff15f2d96ca1630ae2b46a616715551ebdadf7b6",
       "source": "src/native-bridge.js"
     },
     {
@@ -152,8 +152,8 @@
       "route": "/releases",
       "asset": "releases.html",
       "type": "text/html; charset=utf-8",
-      "bytes": 11008,
-      "sha256": "d53c6aa5c2d807850dcdb137a2b87c74821fa527e7830e56ee4827f463bf5e9e",
+      "bytes": 13488,
+      "sha256": "1f053fedfa6a9c968988f92bc99523a19500223ca3338cc05439ce1f40ce615a",
       "source": "src/releases.html"
     },
     {
@@ -165,11 +165,27 @@
       "source": "src/retrieval.js"
     },
     {
+      "route": "/selfmodel.js",
+      "asset": "selfmodel.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 11139,
+      "sha256": "f830cdad1fa261eba8f919c273621e0faf3fcf13b4989a8eb03083b7363e56d2",
+      "source": "src/selfmodel.js"
+    },
+    {
+      "route": "/speaker.js",
+      "asset": "speaker.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 10506,
+      "sha256": "ee11958458cf30195119ce3fe42d6a3eaf613617e0f7b8968be14ed22c0022f2",
+      "source": "src/speaker.js"
+    },
+    {
       "route": "/sw.js",
       "asset": "sw.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 3585,
-      "sha256": "41ad06c5eec53d3e63a29c2d853adbec4bfd846fe4540ed9b949b51302e4e813",
+      "bytes": 3620,
+      "sha256": "c47afde2ca982429dbf6110a6e3cdea85a5b1341271479fd99956c801a5fccd0",
       "source": "src/sw.js"
     },
     {
@@ -216,10 +232,10 @@
       "route": "/voicepack.js",
       "asset": "voicepack.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 32556,
-      "sha256": "ab4d2b788c057494ccb217e3135ef3f199ba6ed2de3656fc239f839b3efe95e3",
+      "bytes": 36492,
+      "sha256": "e4dfa6933474f50c7215a72e8539959a9def047946d3f0b3ad2fbce5d3752c80",
       "source": "src/voicepack.js"
     }
   ],
-  "total_bytes": 2735426
+  "total_bytes": 2792136
 }
