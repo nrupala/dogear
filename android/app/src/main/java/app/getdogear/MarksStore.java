@@ -210,6 +210,48 @@ public final class MarksStore {
     }
 
     // ------------------------------------------------------------------
+    // Whole-document removal (redesign: Library Remove)
+    // ------------------------------------------------------------------
+
+    /** Remove EVERYTHING this store holds for a document: the
+     *  live place, the pinned place, the favorite flag, and every
+     *  bookmark, tag and note that names it. The Library's Remove
+     *  confirms exactly this list to the user before calling, in
+     *  the brief's words — document, saved place, bookmarks, tags
+     *  and notes — so the promise and the act are the same list. */
+    public synchronized void deleteDocument(String docId) {
+        if (docId == null) return;
+        positions().remove(docId);
+        saved().remove(docId);
+        JSONObject tags = root.optJSONObject("tags");
+        if (tags != null) tags.remove(docId);
+        try {
+            JSONArray favs = root.optJSONArray("favorites");
+            if (favs != null) {
+                JSONArray kept = new JSONArray();
+                for (int i = 0; i < favs.length(); i++) {
+                    if (!docId.equals(favs.optString(i, ""))) kept.put(favs.get(i));
+                }
+                root.put("favorites", kept);
+            }
+            for (String key : new String[]{"bookmarks", "notes"}) {
+                JSONArray all = root.optJSONArray(key);
+                if (all != null) {
+                    JSONArray kept = new JSONArray();
+                    for (int i = 0; i < all.length(); i++) {
+                        JSONObject o = all.optJSONObject(i);
+                        if (o != null && !docId.equals(o.optString("docId", ""))) {
+                            kept.put(o);
+                        }
+                    }
+                    root.put(key, kept);
+                }
+            }
+        } catch (Exception ignored) {}
+        persist();
+    }
+
+    // ------------------------------------------------------------------
     // Favorites
     // ------------------------------------------------------------------
 

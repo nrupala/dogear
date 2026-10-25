@@ -49,6 +49,15 @@ public final class NativeControlBar extends LinearLayout {
     private String playback = "none";
     private String voice = "idle";
     private boolean hasDoc = false;
+    private boolean lastCanContinue = false;
+    /* Redesign: the empty state's primary action ("Choose a
+       document") navigates to the Library; the host wires it. */
+    private Runnable chooseDocumentAction;
+
+    public void setChooseDocumentAction(Runnable action) {
+        chooseDocumentAction = action;
+        render(core.snapshot());
+    }
 
     public NativeControlBar(Activity activity, PlayerCore core) {
         super(activity);
@@ -106,6 +115,14 @@ public final class NativeControlBar extends LinearLayout {
 
         btnPlayPause.setOnClickListener(new OnClickListener() {
             @Override public void onClick(View v) {
+                /* Redesign (Phase 0 rule, clause 2): in the empty
+                   state the primary button is "Choose a document"
+                   and it ACTS — it takes the user to the Library.
+                   It is never a dead, disabled Play. */
+                if (!hasDoc && !lastCanContinue && chooseDocumentAction != null) {
+                    chooseDocumentAction.run();
+                    return;
+                }
                 if ("playing".equals(playback)) {
                     core.pause(PlayerCore.Source.BAR);
                 } else if ("paused".equals(playback)) {
@@ -198,7 +215,8 @@ public final class NativeControlBar extends LinearLayout {
         StringBuilder line = new StringBuilder();
         if (hasDoc && !title.isEmpty()) line.append(title);
         else if (hasDoc) line.append("Your document");
-        else line.append("DogEar");
+        else if (canContinue) line.append("DogEar — a saved place is waiting");
+        else line.append("No document open — choose one from the Library");
         if ("playing".equals(playback)) line.append(" — reading aloud");
         else if ("paused".equals(playback)) line.append(" — paused");
         else if ("stopped".equals(playback)) line.append(" — stopped");
@@ -208,10 +226,15 @@ public final class NativeControlBar extends LinearLayout {
         if ("listening".equals(voice)) line.append(" · listening\u2026");
         statusLine.setText(line.toString());
 
+        lastCanContinue = canContinue;
         if ("playing".equals(playback)) btnPlayPause.setText("\u23F8 Pause");
         else if ("paused".equals(playback)) btnPlayPause.setText("\u25B6 Resume");
+        else if (!hasDoc && !canContinue) btnPlayPause.setText("Choose a document");
         else btnPlayPause.setText("\u25B6 Play");
-        btnPlayPause.setEnabled(hasDoc || canContinue);
+        /* The empty state's primary action is live by design
+           (it navigates); every other state keeps the truthful
+           rule: Play needs a document or a saved place. */
+        btnPlayPause.setEnabled(hasDoc || canContinue || chooseDocumentAction != null);
 
         btnStop.setEnabled("playing".equals(playback) || "paused".equals(playback));
 
