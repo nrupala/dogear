@@ -319,12 +319,19 @@ public final class MainActivity extends Activity
             feeder.halt();
             announcer.cancel();
             core.stop(PlayerCore.Source.BAR);
-            core.sessionEnded();
+            // D-3 (2026-10-25): the open document's marks purge
+            // runs inside the core's queue (sessionEndedForget) \u2014
+            // the queued stop() saves the place first, the purge
+            // lands after it. A synchronous purge here loses that
+            // race and the removed document's place resurrects.
+            core.sessionEndedForget(docId);
             openDocId = null;
             listenView.renderEmpty();
         }
         documents.remove(docId);
-        marks.deleteDocument(docId);
+        if (!wasOpen) {
+            marks.deleteDocument(docId);
+        }
         diagEvent("document-removed", "doc", docId);
         Toast.makeText(this, "Removed.", Toast.LENGTH_SHORT).show();
     }
