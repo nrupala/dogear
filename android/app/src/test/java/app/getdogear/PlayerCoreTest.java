@@ -117,6 +117,39 @@ public class PlayerCoreTest {
     }
 
     @Test
+    public void removingOpenDocumentPurgesPlaceBehindQueuedSaves() {
+        // Exercise D-3 (2026-10-25): removing the OPEN, playing
+        // document left its position in the marks store \u2014 stop()
+        // persists the place from inside the poster queue, so a
+        // purge issued synchronously by the host was undone when
+        // the queued save landed after it. The forget must run
+        // inside the queue, behind the saves it has to outlast.
+        final java.util.ArrayDeque<Runnable> queue =
+                new java.util.ArrayDeque<Runnable>();
+        PlayerCore q = new PlayerCore(store, capture,
+                new PlayerCore.Poster() {
+                    @Override public void post(Runnable r) { queue.add(r); }
+                },
+                new PlayerCore.Clock() {
+                    @Override public long nowMs() { return 1700000000000L; }
+                });
+        q.attachSpeech(speech);
+        q.setListener(listener);
+        q.sessionStarted("docX", "Doomed Document", 0, 10);
+        while (!queue.isEmpty()) queue.poll().run();
+        q.utteranceSpoke(4, 10);
+        while (!queue.isEmpty()) queue.poll().run();
+        assertTrue(store.positionFor("docX") != null);
+        // The host's removal order: stop, then the forget \u2014 with
+        // NO synchronous purge in between.
+        q.stop(PlayerCore.Source.BAR);
+        q.sessionEndedForget("docX");
+        while (!queue.isEmpty()) queue.poll().run();
+        assertTrue(store.positionFor("docX") == null);
+        assertFalse(store.hasAnyPosition());
+    }
+
+    @Test
     public void pauseIsIdempotentAndEchoesOnceToThePage() {
         speakChunk(3, 40);
         core.pause(PlayerCore.Source.BAR);
