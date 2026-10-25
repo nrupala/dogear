@@ -19,6 +19,15 @@ import java.util.Map;
  * busy, none, error), the voice engine's states (pack-absent,
  * engine-memory, engine-generic, decode), and the router's own
  * exits (no-speech, unknown, no-document).
+ *
+ * Ordering law (Build F, from the USER seat's Talk finding):
+ * a failure whose cause is knowable BEFORE capture — no voice
+ * model installed is the standing case — is spoken BEFORE the
+ * microphone opens, and capture never starts: the reason
+ * first, then, only if a model exists, capture. PlayerCore's
+ * TalkGate enforces the ordering; PACK_ABSENT is the class it
+ * speaks. (On Build E, Talk listened for the capture's full
+ * 20 seconds in silence and explained itself only afterwards.)
  */
 public final class FailureSpeech {
 

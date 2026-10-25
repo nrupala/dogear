@@ -64,6 +64,8 @@ public final class SettingsView extends ScrollView {
     private final Map<String, Button> tierButtons = new HashMap<String, Button>();
     private final Map<String, String> tierStates = new HashMap<String, String>();
     private TextView licenceState;
+    private TextView licenceTitle;
+    private TextView storageLine;
     private EditText keyInput;
     private TextView voiceState;
     private int reqSeq = 1000;
@@ -123,6 +125,18 @@ public final class SettingsView extends ScrollView {
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             Button action = new Button(getContext());
             action.setAllCaps(false);
+            /* Depth + contrast (Build F, Q-2/Q-4): the shelf's
+               state chips carry the shared in-card control
+               language (light rounded face, small elevation,
+               full-strength dark text) — they read as the
+               controls they are, in every state. */
+            android.graphics.drawable.GradientDrawable chipBg =
+                    new android.graphics.drawable.GradientDrawable();
+            chipBg.setColor(0xFFEAF3FE);
+            chipBg.setCornerRadius(dp(10));
+            action.setBackground(chipBg);
+            action.setElevation(dp(2));
+            action.setTextColor(0xFF10243E);
             action.setOnClickListener(v -> tierAction(tier));
             row.addView(action);
             body.addView(row);
@@ -191,7 +205,19 @@ public final class SettingsView extends ScrollView {
     }
 
     private void buildLicence() {
-        body.addView(sectionTitle("Plan & licence"));
+        licenceTitle = sectionTitle("Plan & licence");
+        body.addView(licenceTitle);
+        /* Build F (Q-3): the terms stand here ALWAYS, in
+           every licence state. On Build E the price and the
+           minutes lived only in the no-key branch of the
+           state line — a device holding a saved-but-unverified
+           key (the QUALITY seat's) showed neither figure
+           anywhere on the surface. */
+        body.addView(bodyText("The terms, in plain words: free "
+                + "listening is 600 minutes every month. The "
+                + "unlock is one payment of US$24.99 \u2014 never "
+                + "a subscription \u2014 for unlimited listening "
+                + "and two-way voice (Talk)."));
         licenceState = bodyText("");
         body.addView(licenceState);
         keyInput = new EditText(getContext());
@@ -224,9 +250,9 @@ public final class SettingsView extends ScrollView {
 
     private void buildStorage() {
         body.addView(sectionTitle("Storage"));
-        int docsCount = shell.documents().list().size();
-        body.addView(bodyText("Documents on this device: " + docsCount
-                + ". Documents and marks never leave the device."));
+        storageLine = bodyText("");
+        body.addView(storageLine);
+        renderStorage();
         Button clear = new Button(getContext());
         clear.setText("Remove downloaded voice models");
         clear.setAllCaps(false);
@@ -244,6 +270,7 @@ public final class SettingsView extends ScrollView {
         body.addView(bodyText(SelfModel.answerFor("identity", ctx)));
         body.addView(bodyText(SelfModel.answerFor("controls", ctx)));
         body.addView(bodyText(SelfModel.answerFor("talk", ctx)));
+        body.addView(bodyText(SelfModel.answerFor("plan", ctx)));
         body.addView(bodyText(SelfModel.answerFor("limits", ctx)));
         body.addView(bodyText("DogEar is made by 2351485 ALBERTA INC. "
                 + "(AIMLDS), Alberta, Canada."));
@@ -256,7 +283,22 @@ public final class SettingsView extends ScrollView {
     public void refresh() {
         renderLicenceState(null);
         renderVoiceState();
+        renderStorage();
         refreshShelf();
+    }
+
+    /** Build F (U-5): the Storage count is read LIVE, at
+     *  display time, on every refresh. Build E read it once in
+     *  the constructor — a view built before any document was
+     *  added announced "Documents on this device: 0" forever,
+     *  over a Library holding documents. Counts are rendered
+     *  from the store at the moment they are shown, never
+     *  remembered. */
+    private void renderStorage() {
+        if (storageLine == null) return;
+        int docsCount = shell.documents().list().size();
+        storageLine.setText("Documents on this device: " + docsCount
+                + ". Documents and marks never leave the device.");
     }
 
     private void refreshShelf() {
@@ -273,11 +315,20 @@ public final class SettingsView extends ScrollView {
                 sb.append(" \u00B7 Not offered yet \u2014 it needs more "
                         + "memory than the in-app engine can safely use.");
                 action.setText("Held");
-                action.setEnabled(false);
+                /* Build F (Q-2): ENABLED. A chip shaped as a
+                   button answers its tap — with its reason
+                   (tierAction). Build E disabled these, so the
+                   tap died in silence and the chip read as a
+                   broken button. There are no bare disabled
+                   states on this surface: the two remaining
+                   disabled renderings (Checking…, Downloading…)
+                   are live progress, self-resolving and
+                   re-queried on every render pass. */
+                action.setEnabled(true);
             } else if (!unlocked) {
                 sb.append(" \u00B7 Part of the unlock.");
                 action.setText("Needs unlock");
-                action.setEnabled(false);
+                action.setEnabled(true);
             } else if (state == null) {
                 sb.append(" \u00B7 Checking\u2026");
                 action.setText("\u2026");
@@ -315,6 +366,31 @@ public final class SettingsView extends ScrollView {
     }
 
     private void tierAction(Tier tier) {
+        /* Build F (Q-2): the standing states answer with their
+           reason, in place — Held says why it is held; Needs
+           unlock states the unlock's terms and takes the user
+           to the section that holds them. A chip that looks
+           tappable either acts or explains; it never ignores. */
+        if (!tier.runnable) {
+            note(tier.label + " is held back on purpose: it needs "
+                    + "more memory than the in-app engine can "
+                    + "safely use, so it is not offered here. "
+                    + "Tiny and Base are the models this surface "
+                    + "can run.");
+            return;
+        }
+        if (!shell.licence().isUnlocked()) {
+            note("Talk models are part of the unlock \u2014 one "
+                    + "payment of US$24.99, never a subscription, "
+                    + "for unlimited listening and two-way voice. "
+                    + "Plan & licence, just below, states the "
+                    + "full terms.");
+            if (licenceTitle != null) {
+                smoothScrollTo(0, Math.max(0,
+                        licenceTitle.getTop() - dp(8)));
+            }
+            return;
+        }
         EngineHost host = shell.engineHost();
         if (host == null) return;
         String state = tierStates.get(tier.id);

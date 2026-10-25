@@ -131,6 +131,16 @@ public final class LibraryView extends LinearLayout {
         meta.setTextColor(0xFF5A6B7F);
         main.addView(meta);
         main.setOnClickListener(v -> shell.openDocument(doc.id));
+        /* Build F (U-4): the WHOLE card opens the document,
+           not only its text column. On Build E the card's
+           padding bands (left of the title, below the meta
+           line, right of the text) were inert — a tap there,
+           in any playback state, did nothing at all, and the
+           seat's row tap "while paused" died in that dead
+           zone. The card is one object; every part of it
+           answers. (Options keeps its own tap; it consumes
+           it before the row sees it.) */
+        row.setOnClickListener(v -> shell.openDocument(doc.id));
         row.addView(main, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
 
         /* W-4 (Build D, from the L13 fresh-eyes walk): removal
@@ -143,6 +153,16 @@ public final class LibraryView extends LinearLayout {
         menu.setText("Options");
         menu.setAllCaps(false);
         menu.setContentDescription("Options for " + doc.title);
+        /* Depth (Build F, Q-4): in-card controls carry the
+           shared language — light rounded face, small
+           elevation of their own — not a flat default slab
+           sitting on an elevated card. */
+        GradientDrawable obg = new GradientDrawable();
+        obg.setColor(0xFFEAF3FE);
+        obg.setCornerRadius(dp(10));
+        menu.setBackground(obg);
+        menu.setElevation(dp(2));
+        menu.setTextColor(0xFF10243E);
         menu.setOnClickListener(v -> rowMenu(doc));
         row.addView(menu);
         return row;

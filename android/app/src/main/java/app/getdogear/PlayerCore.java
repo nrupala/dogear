@@ -64,6 +64,25 @@ public final class PlayerCore {
         void stop();
     }
 
+    /** Pre-capture gate for Talk (Build F, U-6): a failure whose
+     *  cause is knowable BEFORE capture — no voice model on the
+     *  device is the standing case — must be spoken BEFORE the
+     *  microphone opens, and capture must never start. talkStart
+     *  silences playback first (as always), then asks the gate;
+     *  only a proceed() opens the microphone. A blocked() verdict
+     *  ends the Talk press through the normal audio-error path
+     *  (the Announcer speaks the class's line, the resume
+     *  discipline runs) exactly as if capture had failed —
+     *  except no capture ever happened. When no gate is wired
+     *  the press proceeds directly (the pre-F behavior). */
+    public interface TalkGate {
+        interface Callback {
+            void proceed();
+            void blocked(String failureClass);
+        }
+        void check(Callback cb);
+    }
+
     public interface Poster { void post(Runnable r); }
     public interface Clock { long nowMs(); }
 
@@ -83,6 +102,12 @@ public final class PlayerCore {
 
     private volatile SpeechPort speech;
     private volatile Listener listener;
+    private volatile TalkGate talkGate;
+    /** Generation of the current Talk press: a gate verdict
+     *  from an older press (or one the user cancelled with
+     *  talkStop while the gate was still deciding) is ignored. */
+    private int talkSeq = 0;
+    private boolean talkGatePending = false;
 
     private Playback playback = Playback.NONE;
     private Voice voice = Voice.IDLE;
@@ -107,6 +132,7 @@ public final class PlayerCore {
         if (this.speech == port) this.speech = null;
     }
     public void setListener(Listener l) { this.listener = l; }
+    public void setTalkGate(TalkGate gate) { this.talkGate = gate; }
 
     // ------------------------------------------------------------------
     // Session + utterance lifecycle (reported by the bridge/service)
@@ -205,23 +231,50 @@ public final class PlayerCore {
 
     public void pause(final Source source) {
         poster.post(new Runnable() { @Override public void run() {
-            if (playback != Playback.PLAYING) return;
-            SpeechPort s = speech;
-            if (s != null) s.pauseVoice();
-            playback = Playback.PAUSED;
-            if (source != Source.PAGE) emitControl("pause");
-            emitSnapshot();
+            doPause(source);
         }});
+    }
+
+    private void doPause(Source source) {
+        if (playback != Playback.PLAYING) return;
+        SpeechPort s = speech;
+        if (s != null) s.pauseVoice();
+        playback = Playback.PAUSED;
+        if (source != Source.PAGE) emitControl("pause");
+        emitSnapshot();
     }
 
     public void resume(final Source source) {
         poster.post(new Runnable() { @Override public void run() {
-            if (playback != Playback.PAUSED) return;
-            SpeechPort s = speech;
-            if (s != null) s.resumeVoice();
-            playback = Playback.PLAYING;
-            if (source != Source.PAGE) emitControl("resume");
-            emitSnapshot();
+            doResume(source);
+        }});
+    }
+
+    private void doResume(Source source) {
+        if (playback != Playback.PAUSED) return;
+        SpeechPort s = speech;
+        if (s != null) s.resumeVoice();
+        playback = Playback.PLAYING;
+        if (source != Source.PAGE) emitControl("resume");
+        emitSnapshot();
+    }
+
+    /** The transport press (Build F, U-1). Surfaces used to
+     *  decide pause-vs-resume from their own CACHED rendering of
+     *  the state and call the matching verb — a press issued
+     *  against a stale render called a verb that no-ops silently
+     *  (resume while playing returns before any snapshot is
+     *  emitted), so the press vanished and no surface said so:
+     *  the USER seat's "pause did not hold". The toggle decides
+     *  HERE, inside the serialized queue, from the machine's own
+     *  current truth at the moment the press is processed —
+     *  playing pauses, paused resumes, stopped plays. No surface
+     *  cache can absorb a press again. */
+    public void togglePlayPause(final Source source) {
+        poster.post(new Runnable() { @Override public void run() {
+            if (playback == Playback.PLAYING) doPause(source);
+            else if (playback == Playback.PAUSED) doResume(source);
+            else doPlay(source);
         }});
     }
 
@@ -247,9 +300,14 @@ public final class PlayerCore {
      *  continue event (open + seek + play). */
     public void play(final Source source) {
         poster.post(new Runnable() { @Override public void run() {
+            doPlay(source);
+        }});
+    }
+
+    private void doPlay(Source source) {
             if (playback == Playback.PLAYING) return;
             if (playback == Playback.PAUSED) {
-                resume(source);
+                doResume(source);
                 return;
             }
             if (docId != null) {
@@ -272,7 +330,6 @@ public final class PlayerCore {
                 }
             }
             emitSnapshot();
-        }});
     }
 
     public void next(final Source source) {
@@ -380,7 +437,7 @@ public final class PlayerCore {
      *  command may itself be "stop"). */
     public void talkStart(final Source source) {
         poster.post(new Runnable() { @Override public void run() {
-            if (voice != Voice.IDLE) return;
+            if (voice != Voice.IDLE || talkGatePending) return;
             if (docId == null) { toast("Open a document first, then Talk."); return; }
             captureSilencedPlayback = false;
             if (playback == Playback.PLAYING) {
@@ -397,21 +454,77 @@ public final class PlayerCore {
                 // never runs.
                 emitControl("pause");
             }
-            voice = Voice.LISTENING;
+            // Build F (U-6): the gate decides BEFORE the
+            // microphone opens. Playback is already silenced —
+            // the ordering law (silence before the mic) is
+            // unchanged; what is new is that a cause knowable
+            // now (no voice model installed) is spoken now, and
+            // capture never starts for it.
+            final int seq = ++talkSeq;
+            TalkGate gate = talkGate;
+            if (gate == null) {
+                beginCapture();
+                return;
+            }
+            talkGatePending = true;
             emitSnapshot();
-            capture.start(new CapturePort.Callback() {
-                @Override public void onCaptured(short[] samples, int sampleRate) {
-                    onCaptureDone(samples, sampleRate, null);
+            gate.check(new TalkGate.Callback() {
+                @Override public void proceed() {
+                    poster.post(new Runnable() { @Override public void run() {
+                        if (seq != talkSeq || !talkGatePending) return;
+                        talkGatePending = false;
+                        beginCapture();
+                    }});
                 }
-                @Override public void onCaptureError(String errorClass) {
-                    onCaptureDone(null, 0, errorClass);
+                @Override public void blocked(final String failureClass) {
+                    poster.post(new Runnable() { @Override public void run() {
+                        if (seq != talkSeq || !talkGatePending) return;
+                        talkGatePending = false;
+                        boolean resumeAfter = captureSilencedPlayback;
+                        captureSilencedPlayback = false;
+                        emitAudioError(failureClass == null
+                                ? "engine-generic" : failureClass,
+                                resumeAfter);
+                        emitSnapshot();
+                    }});
                 }
             });
         }});
     }
 
+    /** Open the microphone (the gate has proceeded, or none is
+     *  wired). The voice state rises exactly here — never
+     *  before the gate's word — so a surface showing "listening"
+     *  is proof capture actually began. */
+    private void beginCapture() {
+        voice = Voice.LISTENING;
+        emitSnapshot();
+        capture.start(new CapturePort.Callback() {
+            @Override public void onCaptured(short[] samples, int sampleRate) {
+                onCaptureDone(samples, sampleRate, null);
+            }
+            @Override public void onCaptureError(String errorClass) {
+                onCaptureDone(null, 0, errorClass);
+            }
+        });
+    }
+
     public void talkStop() {
         poster.post(new Runnable() { @Override public void run() {
+            if (talkGatePending) {
+                // The press is cancelled while the gate is still
+                // deciding: the gate's verdict, when it lands,
+                // is stale and ignored, capture never opens, and
+                // playback this press silenced is given back.
+                talkGatePending = false;
+                talkSeq++;
+                if (captureSilencedPlayback) {
+                    captureSilencedPlayback = false;
+                    doResume(Source.SYSTEM);
+                }
+                emitSnapshot();
+                return;
+            }
             if (voice == Voice.LISTENING) capture.stop();
         }});
     }

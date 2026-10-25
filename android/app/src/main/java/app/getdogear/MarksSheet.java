@@ -11,6 +11,7 @@ import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -52,15 +53,29 @@ public final class MarksSheet {
     private final Handler main = new Handler(Looper.getMainLooper());
 
     private Dialog dialog;
+    private ScrollView scrollBox;
     private LinearLayout listBox;
     private TextView confirmLine;
     private TextView titleLine;
     private String docId;
+    /* Build F (U-3): the sheet's window ends ABOVE the app's
+       navigation bar — the host measures the nav (plus the
+       system-bar inset under it) and passes the total; the
+       sheet's bottom edge sits on the nav's top edge, so no
+       mark row ever renders over the Library|Settings band
+       again (on Build E the sheet's lowest row overlapped the
+       nav band and a tap there could switch areas). */
+    private int bottomInsetPx = 0;
 
     public MarksSheet(Activity activity, PlayerCore core, Host host) {
         this.activity = activity;
         this.core = core;
         this.host = host;
+    }
+
+    public void setBottomInsetPx(int px) {
+        bottomInsetPx = Math.max(0, px);
+        applyWindowGeometry();
     }
 
     public boolean isShowing() {
@@ -78,8 +93,16 @@ public final class MarksSheet {
             return;
         }
         build();
-        dialog.show();
+        /* Build F (U-2): the content is FULLY populated before
+           the window shows — title, marks list, everything the
+           first layout needs. Build E showed first and filled
+           after: the window grew upward as content landed and
+           the action buttons moved after they were already
+           visible and tappable, so a tap aimed at one button
+           landed on its neighbour. Stationary from the moment
+           they are tappable is the law now. */
         refresh();
+        dialog.show();
     }
 
     private void build() {
@@ -116,7 +139,13 @@ public final class MarksSheet {
         confirmLine.setTextSize(14);
         confirmLine.setTextColor(0xFF175C4C);
         confirmLine.setPadding(0, dp(6), 0, 0);
-        confirmLine.setVisibility(View.GONE);
+        /* Build F (U-2): the confirm line's space is RESERVED
+           from the first layout (it used to flip GONE→VISIBLE
+           200 ms after an act, growing the sheet under the
+           user's next aim). It stands empty until it has
+           something to say; its height never changes. */
+        confirmLine.setMinHeight(dp(26));
+        confirmLine.setText("");
         panel.addView(confirmLine);
 
         panel.addView(actionButton("Save place", v -> {
@@ -132,6 +161,7 @@ public final class MarksSheet {
         panel.addView(actionButton("Note\u2026", v -> noteDialog()));
 
         ScrollView scroll = new ScrollView(activity);
+        scrollBox = scroll;
         listBox = new LinearLayout(activity);
         listBox.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(listBox);
@@ -149,15 +179,57 @@ public final class MarksSheet {
         if (w != null) {
             w.setGravity(Gravity.BOTTOM);
             w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            /* Build F (U-2): NO window enter/exit animation.
+               The platform's default dialog animation moves
+               the sheet while it is already tappable — the
+               position a user SEES mid-settle is not the
+               position the tap tests against, which is how a
+               tap aimed at "Save place" landed on "Bookmark".
+               The sheet now appears in its final place at once;
+               its depth read comes from the scrim, the rounded
+               top and the elevation, not from motion. */
+            w.setWindowAnimations(0);
         }
-        dialog.setOnShowListener(d -> {
-            Window win = dialog.getWindow();
-            if (win != null) {
-                win.setLayout(LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT);
+        dialog.setOnShowListener(d -> applyWindowGeometry());
+        dialog.setOnDismissListener(d -> dialog = null);
+    }
+
+    /** The sheet's window contract: full width, content
+     *  height, bottom edge resting ON the navigation bar's
+     *  top edge (U-3), and the marks list height clamped so
+     *  the panel can never grow down over the nav band no
+     *  matter how many marks the document carries. */
+    private void applyWindowGeometry() {
+        if (dialog == null) return;
+        Window win = dialog.getWindow();
+        if (win == null) return;
+        WindowManager.LayoutParams lp = win.getAttributes();
+        lp.width = WindowManager.LayoutParams.MATCH_PARENT;
+        lp.height = WindowManager.LayoutParams.WRAP_CONTENT;
+        lp.gravity = Gravity.BOTTOM;
+        lp.y = bottomInsetPx;
+        win.setAttributes(lp);
+        clampListHeight();
+    }
+
+    /** The marks list scrolls within a fixed ceiling — the
+     *  sheet's total height is bounded by construction, so
+     *  its geometry is the same for 0 marks and 50. */
+    private void clampListHeight() {
+        if (scrollBox == null || listBox == null) return;
+        scrollBox.post(() -> {
+            if (scrollBox == null || listBox == null) return;
+            int max = dp(216);
+            int want = listBox.getHeight();
+            LinearLayout.LayoutParams lp =
+                    (LinearLayout.LayoutParams) scrollBox.getLayoutParams();
+            int target = want <= 0 ? LinearLayout.LayoutParams.WRAP_CONTENT
+                    : Math.min(want, max);
+            if (lp.height != target) {
+                lp.height = target;
+                scrollBox.setLayoutParams(lp);
             }
         });
-        dialog.setOnDismissListener(d -> dialog = null);
     }
 
     private Button actionButton(String label, View.OnClickListener onClick) {
@@ -166,6 +238,16 @@ public final class MarksSheet {
         b.setAllCaps(false);
         b.setTextSize(15f);
         b.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+        /* Depth (Build F, Q-4): the sheet's actions carry the
+           same in-card control language as the Library's and
+           the shelf's — a light rounded face with its own
+           small elevation — not flat default slabs. */
+        GradientDrawable abg = new GradientDrawable();
+        abg.setColor(0xFFF2F6FB);
+        abg.setCornerRadius(dp(10));
+        b.setBackground(abg);
+        b.setElevation(dp(2));
+        b.setTextColor(0xFF10243E);
         b.setOnClickListener(onClick);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
@@ -264,6 +346,7 @@ public final class MarksSheet {
                         + n.optString("text", ""), n.optInt("chunk", 0)));
             }
         }
+        clampListHeight();
     }
 
     private TextView markRow(String label, final int chunk) {

@@ -90,6 +90,13 @@ public final class MainActivity extends Activity
     private NowListeningStrip strip;
     private MarksSheet marksSheet;
     private Button navLibrary, navSettings;
+    private View navIndLibrary, navIndSettings;
+    private LinearLayout navBar;
+    /* Build F (U-6): the Talk gate's outstanding engine probe —
+       the callback the core is waiting on, and its request
+       range (kept clear of the shelf's own status requests). */
+    private PlayerCore.TalkGate.Callback pendingTalkGate;
+    private int gateReqSeq = 900000;
     private int area = AREA_LIBRARY;
     /* Build E: Listen is a view OVER a door, not a door itself.
        listenOpen says it is up; areaBeforeListen is the door
@@ -155,6 +162,31 @@ public final class MainActivity extends Activity
         ask.setSpeechParams(rate, "");
         ask.setAnnouncementResumeHook(() -> feeder.resumeAfterAnnouncement());
         ask.setSteering((chunk, playAfter) -> steerInternal(chunk, playAfter));
+
+        /* Build F (U-6): the Talk gate. Before the microphone
+           opens, the engine's own standing is asked for the
+           model Talk would use: installed → capture proceeds;
+           anything else → the press ends with the pack-absent
+           line through the core's audio-error path, and no
+           capture ever starts. If the engine page itself is
+           not up yet, or the probe goes unanswered, the press
+           proceeds (the post-capture path still speaks its
+           class honestly) — the gate never hangs Talk. */
+        core.setTalkGate(cb -> {
+            if (engineHost == null || !engineHost.isReady()) {
+                cb.proceed();
+                return;
+            }
+            pendingTalkGate = cb;
+            final int req = gateReqSeq++;
+            engineHost.status(req, null);
+            main.postDelayed(() -> {
+                if (pendingTalkGate == cb) {
+                    pendingTalkGate = null;
+                    cb.proceed();
+                }
+            }, 2500);
+        });
 
         buildLayout();
 
@@ -229,11 +261,19 @@ public final class MainActivity extends Activity
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
         controlBar = new NativeControlBar(this, core);
         controlBar.setChooseDocumentAction(() -> showArea(AREA_LIBRARY));
+        controlBar.setTransportAction(this::transportToggle);
         marksSheet = new MarksSheet(this, core, chunk -> steerToChunk(chunk));
         controlBar.setMarksAction(() -> {
             if (openDocId != null) marksSheet.show(openDocId);
         });
-        listenArea.addView(controlBar);
+        /* Build F (Q-4): the deck floats over the ground —
+           margins on every side, so the app ground shows
+           around it exactly as it does around the strip. */
+        LinearLayout.LayoutParams deckLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        deckLp.setMargins(dp(10), dp(6), dp(10), dp(10));
+        listenArea.addView(controlBar, deckLp);
         content.addView(listenArea);
 
         libraryView = new LibraryView(this, this);
@@ -267,18 +307,57 @@ public final class MainActivity extends Activity
            Moon+ teardown is the standing warning against admin
            hidden inside content. Recorded in the Build E
            exercise record.) */
-        LinearLayout nav = new LinearLayout(this);
-        nav.setOrientation(LinearLayout.HORIZONTAL);
-        nav.setBackgroundColor(0xFF10243E);
+        navBar = new LinearLayout(this);
+        navBar.setOrientation(LinearLayout.HORIZONTAL);
+        navBar.setBackgroundColor(0xFF10243E);
+        /* Depth (Build F, Q-4): the navigation stands in the
+           same elevation language as the surfaces it serves —
+           an elevated bar, its current door marked by an
+           accent indicator — not two flat grey slabs told
+           apart by bold text alone (the QUALITY seat named
+           the nav the flattest element in the app). */
+        navBar.setElevation(dp(8));
         navLibrary = navButton("Library", AREA_LIBRARY);
         navSettings = navButton("Settings", AREA_SETTINGS);
-        nav.addView(navLibrary);
-        nav.addView(navSettings);
-        root.addView(nav);
+        navIndLibrary = navIndicator();
+        navIndSettings = navIndicator();
+        navBar.addView(navCell(navIndLibrary, navLibrary));
+        navBar.addView(navCell(navIndSettings, navSettings));
+        root.addView(navBar);
 
         setContentView(root);
         applySystemBarInsets(root);
         renderNav();
+        /* Build F (U-3): the Marks sheet's window ends where
+           this navigation begins — measured once the layout
+           stands (nav height + the system inset beneath it,
+           which the root's padding carries). */
+        root.post(() -> {
+            if (marksSheet != null && navBar != null) {
+                marksSheet.setBottomInsetPx(
+                        navBar.getHeight() + root.getPaddingBottom());
+            }
+        });
+    }
+
+    private View navIndicator() {
+        View v = new View(this);
+        v.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(3)));
+        return v;
+    }
+
+    private LinearLayout navCell(View indicator, Button button) {
+        LinearLayout cell = new LinearLayout(this);
+        cell.setOrientation(LinearLayout.VERTICAL);
+        cell.setLayoutParams(new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        cell.addView(indicator);
+        button.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        cell.addView(button);
+        return cell;
     }
 
     /* W-1 (Build D, from the L13 fresh-eyes walk): the app draws
@@ -323,6 +402,7 @@ public final class MainActivity extends Activity
            the one it was opened from — Listen is a view over a
            door, not a third door. */
         Button[] all = {navLibrary, navSettings};
+        View[] inds = {navIndLibrary, navIndSettings};
         int[] areas = {AREA_LIBRARY, AREA_SETTINGS};
         for (int i = 0; i < all.length; i++) {
             boolean active = areas[i] == area;
@@ -330,7 +410,27 @@ public final class MainActivity extends Activity
             all[i].setTypeface(null, active
                     ? android.graphics.Typeface.BOLD
                     : android.graphics.Typeface.NORMAL);
+            if (inds[i] != null) {
+                inds[i].setBackgroundColor(active
+                        ? 0xFF2FA37C : 0x00000000);
+            }
         }
+    }
+
+    /** The transport press path (Build F, U-1), shared by the
+     *  control bar and the strip. The feeder is halted
+     *  SYNCHRONOUSLY, on the press itself: chunk-advance work
+     *  already queued ahead of the press (an end-of-chunk
+     *  fan-out posted a moment earlier) can no longer feed a
+     *  new chunk past a pause press, because when it runs the
+     *  feeder is already halted. The decision itself —
+     *  pause, resume or play — is the core's, taken inside
+     *  its queue from its own current truth (togglePlayPause),
+     *  so no surface's cached rendering can absorb the press
+     *  into a verb that no-ops. */
+    private void transportToggle() {
+        if (feeder != null) feeder.halt();
+        core.togglePlayPause(PlayerCore.Source.BAR);
     }
 
     @Override
@@ -484,10 +584,7 @@ public final class MainActivity extends Activity
     private void onStripPlayPause() {
         JSONObject s = core.snapshot();
         if (!s.isNull("docId")) {
-            String pb = s.optString("playback", "none");
-            if ("playing".equals(pb)) core.pause(PlayerCore.Source.BAR);
-            else if ("paused".equals(pb)) core.resume(PlayerCore.Source.BAR);
-            else core.play(PlayerCore.Source.BAR);
+            transportToggle();
         } else {
             /* The strip's button in the place-only state IS
                Continue: the core's verb, resuming at the pin. */
@@ -900,6 +997,20 @@ public final class MainActivity extends Activity
     @Override
     public void onEngineEvent(JSONObject event) {
         String kind = event.optString("kind", "");
+        /* Build F (U-6): the Talk gate's probe answer. The
+           event still flows on to the shelf afterwards — the
+           gate borrows the engine's standing, it does not
+           consume it. */
+        if ("status".equals(kind) && pendingTalkGate != null
+                && event.optInt("req", -1) >= 900000) {
+            JSONObject st = event.optJSONObject("status");
+            boolean installed = st != null
+                    && "installed".equals(st.optString("state", ""));
+            PlayerCore.TalkGate.Callback cb = pendingTalkGate;
+            pendingTalkGate = null;
+            if (installed) cb.proceed();
+            else cb.blocked(FailureSpeech.PACK_ABSENT);
+        }
         if ("transcript".equals(kind)) {
             ask.onEngineEvent(event);
             return;
@@ -932,6 +1043,10 @@ public final class MainActivity extends Activity
                         REQ_NOTIF);
             } catch (Exception ignored) {}
         }
+    }
+
+    private int dp(int v) {
+        return Math.round(v * getResources().getDisplayMetrics().density);
     }
 
     private void diagEvent(String name, String key, Object value) {

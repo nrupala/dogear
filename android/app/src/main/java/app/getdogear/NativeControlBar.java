@@ -50,6 +50,13 @@ public final class NativeControlBar extends LinearLayout {
     private Runnable chooseDocumentAction;
     /* Build E: the Marks button opens the host's Marks sheet. */
     private Runnable marksAction;
+    /* Build F (U-1): the transport press path, wired by the
+       host. The bar no longer decides pause-vs-resume from its
+       own cached rendering — a stale cache made it call a verb
+       that no-opped silently and the press vanished. The host
+       halts the feeder synchronously and lets PlayerCore's
+       toggle decide from the machine's current truth. */
+    private Runnable transportAction;
     /* Build E (Seat B delta 4): the host computes time remaining
        truthfully from chunk position + speech rate and pushes
        the label; null means "not shown", never a guess. */
@@ -62,6 +69,10 @@ public final class NativeControlBar extends LinearLayout {
 
     public void setMarksAction(Runnable action) {
         marksAction = action;
+    }
+
+    public void setTransportAction(Runnable action) {
+        transportAction = action;
     }
 
     /** The marks count the host computed from the core's marks
@@ -80,7 +91,17 @@ public final class NativeControlBar extends LinearLayout {
         this.activity = activity;
         this.core = core;
         setOrientation(VERTICAL);
-        setBackgroundColor(0xFF0B1B30);
+        /* Depth (Build F, Q-4): the Listen deck FLOATS, in the
+           same elevation language as the Now Listening strip —
+           a rounded dark card over the ground (the host gives
+           it margins), not a full-bleed flat slab. One element,
+           one treatment, everywhere it stands. */
+        android.graphics.drawable.GradientDrawable deckBg =
+                new android.graphics.drawable.GradientDrawable();
+        deckBg.setColor(0xFF0B1B30);
+        deckBg.setCornerRadius(dp(16));
+        setBackground(deckBg);
+        setElevation(dp(10));
         int pad = dp(10);
         setPadding(pad, dp(6), pad, dp(8));
 
@@ -94,16 +115,31 @@ public final class NativeControlBar extends LinearLayout {
         statusLine = new TextView(activity);
         statusLine.setTextColor(0xFFBFD9F7);
         statusLine.setTextSize(13f);
-        statusLine.setSingleLine(true);
+        /* Build F (QUALITY seat, baseline list #4): the status
+           line was single-line, and with title + state + part +
+           saved place + time remaining all present, the LAST
+           segment — the promised time remaining — was the one
+           ellipsized away. The line may now take two lines; the
+           facts are never sacrificed to the fit. */
+        statusLine.setSingleLine(false);
+        statusLine.setMaxLines(2);
         statusLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
         statusLine.setText("DogEar — open a document to listen");
-        addView(statusLine, new LayoutParams(LayoutParams.MATCH_PARENT, dp(24)));
+        LayoutParams slp = new LayoutParams(LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT);
+        statusLine.setMinHeight(dp(24));
+        addView(statusLine, slp);
 
         LinearLayout transport = row();
         btnPlayPause = button("\u25B6 Play");
         btnStop = button("\u23F9 Stop");
         btnTalk = button("\uD83C\uDFA4 Talk");
-        btnContinue = button("\u23F5 Continue");
+        /* Build F (Q-1): Continue's old glyph (U+23F5) does not
+           exist in the device font and rendered as a missing-
+           glyph box on a standing primary control. It now
+           carries U+25B6 — the same play triangle as Play and
+           Resume, proven to render on-device. */
+        btnContinue = button("\u25B6 Continue");
         /* One obvious primary action (placement law 2): Play
            carries the accent; Talk, the voice primary, carries
            weight. Everything else stays quiet. */
@@ -135,6 +171,15 @@ public final class NativeControlBar extends LinearLayout {
                    It is never a dead, disabled Play. */
                 if (!hasDoc && !lastCanContinue && chooseDocumentAction != null) {
                     chooseDocumentAction.run();
+                    return;
+                }
+                /* Build F (U-1): the press goes to the host's
+                   transport path — the feeder halts on the press
+                   itself and the core's toggle decides from
+                   current truth. The cached-verb path below is
+                   kept only for a bar with no host wired. */
+                if (transportAction != null) {
+                    transportAction.run();
                     return;
                 }
                 if ("playing".equals(playback)) {

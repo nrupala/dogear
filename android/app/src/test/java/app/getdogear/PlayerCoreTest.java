@@ -221,6 +221,102 @@ public class PlayerCoreTest {
     }
 
     @Test
+    public void toggleDecidesFromCurrentTruthNotSurfaceCache() {
+        // Build F (U-1): the bar used to decide pause-vs-resume
+        // from its own cached rendering and call that verb; a
+        // press against a stale render called a verb that
+        // no-ops silently (resume while playing emits nothing),
+        // so the press vanished \u2014 the seat's "pause did not
+        // hold". The toggle decides inside the queue from the
+        // machine's current state: every press lands.
+        speakChunk(2, 30); // PLAYING
+        core.togglePlayPause(PlayerCore.Source.BAR);
+        assertEquals(PlayerCore.Playback.PAUSED, core.playback());
+        assertEquals(1, speech.pauses);
+        core.togglePlayPause(PlayerCore.Source.BAR);
+        assertEquals(PlayerCore.Playback.PLAYING, core.playback());
+        assertEquals(1, speech.resumes);
+        // A press that arrives after the state moved on (the
+        // chunk advanced between render and press) still acts
+        // on the state as it IS, never as it was rendered.
+        core.togglePlayPause(PlayerCore.Source.BAR);
+        assertEquals(PlayerCore.Playback.PAUSED, core.playback());
+        assertEquals(2, speech.pauses);
+    }
+
+    static final class FakeGate implements PlayerCore.TalkGate {
+        String blockClass;   // non-null: blocked with this class
+        boolean hold;        // hold the verdict until released
+        Callback held;
+        int checks;
+        @Override public void check(Callback cb) {
+            checks++;
+            if (hold) { held = cb; return; }
+            if (blockClass != null) cb.blocked(blockClass);
+            else cb.proceed();
+        }
+    }
+
+    @Test
+    public void talkGateBlocksCaptureAndSpeaksTheReasonFirst() {
+        // Build F (U-6): with no voice model installed, Talk
+        // opened the mic and listened ~20 s in silence, and the
+        // pack-absent reason was spoken only afterwards. The
+        // gate must speak the reason BEFORE any capture \u2014 and
+        // capture must never start.
+        FakeGate gate = new FakeGate();
+        gate.blockClass = "pack-absent";
+        core.setTalkGate(gate);
+        speakChunk(2, 30); // PLAYING
+        order.clear();
+        listener.pageEvents.clear();
+        core.talkStart(PlayerCore.Source.BAR);
+        assertEquals(1, gate.checks);
+        assertEquals(0, capture.starts);              // never opened
+        assertEquals(PlayerCore.Voice.IDLE, core.voice());
+        // Playback was silenced for the press, as always\u2026
+        assertEquals(1, speech.pauses);
+        // \u2026and the failure reaches the page as an audio
+        // error carrying the resume discipline (announce the
+        // reason, then resume) \u2014 before any capture existed.
+        List<JSONObject> errs = listener.eventsOfType("audioError");
+        assertEquals(1, errs.size());
+        assertEquals("pack-absent", errs.get(0).optString("class"));
+        assertTrue(errs.get(0).optBoolean("resumeAfter"));
+    }
+
+    @Test
+    public void talkGateProceedKeepsSilenceBeforeMicrophone() {
+        FakeGate gate = new FakeGate(); // proceeds
+        core.setTalkGate(gate);
+        speakChunk(2, 30);
+        order.clear();
+        core.talkStart(PlayerCore.Source.BAR);
+        assertEquals(1, capture.starts);
+        assertEquals(PlayerCore.Voice.LISTENING, core.voice());
+        assertTrue(order.indexOf("speech.pause") >= 0);
+        assertTrue(order.indexOf("capture.start") > order.indexOf("speech.pause"));
+    }
+
+    @Test
+    public void talkGateVerdictAfterCancelIsIgnored() {
+        FakeGate gate = new FakeGate();
+        gate.hold = true;
+        core.setTalkGate(gate);
+        speakChunk(2, 30); // PLAYING
+        core.talkStart(PlayerCore.Source.BAR);
+        assertEquals(PlayerCore.Playback.PAUSED, core.playback());
+        core.talkStop(); // user cancels while the gate decides
+        // The silenced playback is given back, capture never
+        // opened, and the gate's late verdict changes nothing.
+        assertEquals(PlayerCore.Playback.PLAYING, core.playback());
+        assertEquals(1, speech.resumes);
+        gate.held.proceed();
+        assertEquals(0, capture.starts);
+        assertEquals(PlayerCore.Voice.IDLE, core.voice());
+    }
+
+    @Test
     public void pageStartedTalkDoesNotRePause() {
         speakChunk(2, 30);
         core.pause(PlayerCore.Source.PAGE); // the page parks first, as its flow does
