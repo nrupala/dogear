@@ -557,4 +557,88 @@ public class PlayerCoreTest {
         assertEquals(13, reloaded.positionFor("doc1").optInt("chunk"));
         assertEquals(1, reloaded.marksFor("doc1").optJSONArray("notes").length());
     }
+
+    @Test
+    public void jumpFromPausedLandsPausedAtTheTarget() {
+        // Build I (D-17, correcting D-9): a jump re-seeds the
+        // session, and a re-seed's rest state used to be
+        // STOPPED unconditionally — a paragraph jump made
+        // from PAUSED moved the place and dropped the state
+        // to stopped (TESTER L21 case 2, failed twice on
+        // Build H2). Preservation is all three states: the
+        // jump lands in the state the user was in.
+        speakChunk(9, 40);
+        core.pause(PlayerCore.Source.BAR);
+        assertEquals(PlayerCore.Playback.PAUSED, core.playback());
+        core.jumpSession("doc1", "A Document", 20, 40, true);
+        assertEquals(PlayerCore.Playback.PAUSED, core.playback());
+        assertEquals(20, core.chunk());
+        // The jumped place is the live position now — every
+        // surface's "your place" and any later resume agree.
+        assertEquals(20, store.positionFor("doc1").optInt("chunk"));
+    }
+
+    @Test
+    public void jumpFromStoppedLandsStoppedAtTheTarget() {
+        speakChunk(9, 40);
+        core.stop(PlayerCore.Source.BAR);
+        assertEquals(PlayerCore.Playback.STOPPED, core.playback());
+        core.jumpSession("doc1", "A Document", 3, 40, false);
+        assertEquals(PlayerCore.Playback.STOPPED, core.playback());
+        assertEquals(3, core.chunk());
+        assertEquals(3, store.positionFor("doc1").optInt("chunk"));
+    }
+
+    @Test
+    public void aSessionAfterAJumpStillStartsStopped() {
+        // The D-2 law is untouched by the jump verb: a NEW
+        // session (a document open) starts STOPPED, never
+        // paused-at-a-place and never playing.
+        speakChunk(1, 10);
+        core.pause(PlayerCore.Source.BAR);
+        core.jumpSession("doc1", "A Document", 4, 10, true);
+        assertEquals(PlayerCore.Playback.PAUSED, core.playback());
+        core.sessionStarted("doc2", "Second Document", 0, 5);
+        assertEquals(PlayerCore.Playback.STOPPED, core.playback());
+    }
+
+    @Test
+    public void finishingIsItsOwnStateAndKeepsThePlace() {
+        // Build I (Q-H4): the end of the book, acknowledged.
+        speakChunk(38, 40);
+        speakChunk(39, 40);
+        core.documentFinished(PlayerCore.Source.SYSTEM);
+        assertEquals(PlayerCore.Playback.FINISHED, core.playback());
+        assertEquals("finished", core.snapshot().optString("playback"));
+        assertEquals(39, store.positionFor("doc1").optInt("chunk"));
+        // A second finish signal (a late feeder event) is a
+        // no-op, and Stop does not un-finish the book.
+        core.documentFinished(PlayerCore.Source.SYSTEM);
+        core.stop(PlayerCore.Source.BAR);
+        assertEquals(PlayerCore.Playback.FINISHED, core.playback());
+        // A book the USER stopped mid-way never wears it.
+        core.jumpSession("doc1", "A Document", 3, 40, false);
+        assertEquals(PlayerCore.Playback.STOPPED, core.playback());
+        core.documentFinished(PlayerCore.Source.SYSTEM);
+        assertEquals(PlayerCore.Playback.STOPPED, core.playback());
+    }
+
+    @Test
+    public void playFromFinishedReopensAtTheStart() {
+        // Build I (Q-H4): the press the surfaces label "Read
+        // again from the start" must DO that — a continue
+        // event pinned to chunk 0 of the same document, not
+        // the bare play control that used to replay the
+        // final part.
+        speakChunk(7, 8);
+        core.documentFinished(PlayerCore.Source.SYSTEM);
+        listener.pageEvents.clear();
+        core.togglePlayPause(PlayerCore.Source.BAR);
+        java.util.List<JSONObject> cont =
+                listener.eventsOfType("continue");
+        assertEquals(1, cont.size());
+        assertEquals("doc1", cont.get(0).optString("docId"));
+        assertEquals(0, cont.get(0).optInt("chunk", -1));
+        assertEquals(0, listener.controls("play").size());
+    }
 }

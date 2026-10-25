@@ -152,6 +152,13 @@ public final class NowListeningStrip extends LinearLayout {
         } else if ("paused".equals(info.playback)) {
             if (meta.length() > 0) meta.append(" · ");
             meta.append("paused");
+        } else if ("finished".equals(info.playback)) {
+            /* Build I (Q-H4): the strip acknowledges the end
+               in the same word the deck uses — and no
+               remaining figure follows it (the host passes
+               none for this state). */
+            if (meta.length() > 0) meta.append(" · ");
+            meta.append("Finished");
         }
         if (info.remaining != null) {
             if (meta.length() > 0) meta.append(" · ");
@@ -163,6 +170,8 @@ public final class NowListeningStrip extends LinearLayout {
             btnPlayPause.setText("\u23F8 Pause");
         } else if ("paused".equals(info.playback)) {
             btnPlayPause.setText("\u25B6 Resume");
+        } else if ("finished".equals(info.playback)) {
+            btnPlayPause.setText("\u25B6 Read again");
         } else if (info.sessionOpen) {
             btnPlayPause.setText("\u25B6 Play");
         } else {

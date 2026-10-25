@@ -174,9 +174,11 @@ public final class NativeFeeder {
         int target = Math.max(0, Math.min(awaitingIdx + delta,
                 chunks.size() - 1));
         if (target == awaitingIdx && delta > 0) {
-            // Next on the final chunk: the reading ends here.
+            // Next on the final chunk: the reading ends here —
+            // it ENDS (Build I): the core's Finished state,
+            // not a stop the user never pressed.
             haltLocked();
-            core.stop(PlayerCore.Source.SYSTEM);
+            core.documentFinished(PlayerCore.Source.SYSTEM);
             return;
         }
         feedLocked(target);
@@ -217,7 +219,11 @@ public final class NativeFeeder {
         if (next >= chunks.size()) {
             diagEvent("book-ended", id);
             haltLocked();
-            core.stop(PlayerCore.Source.SYSTEM);
+            /* Build I (Q-H4): the book is FINISHED — its own
+               state, acknowledged on every surface — not
+               stopped, which was a user's verb wearing the
+               machine's event. */
+            core.documentFinished(PlayerCore.Source.SYSTEM);
             return;
         }
         feedLocked(next);
@@ -251,8 +257,11 @@ public final class NativeFeeder {
                     if (chunks != null && idx + 1 < chunks.size()) {
                         feedLocked(idx + 1);
                     } else {
+                        // The lost piece was the book's last:
+                        // the reading is over (the defect was
+                        // surfaced above, in its own words).
                         haltLocked();
-                        core.stop(PlayerCore.Source.SYSTEM);
+                        core.documentFinished(PlayerCore.Source.SYSTEM);
                     }
                 }
             }

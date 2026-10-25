@@ -364,6 +364,14 @@ public final class NativeControlBar extends LinearLayout {
         } else if ("stopped".equals(playback)) {
             if (line.length() > 0) line.append(" · ");
             line.append("stopped");
+        } else if ("finished".equals(playback)) {
+            /* Build I (Q-H4): the end of the book, in words,
+               on the same line as every other state. The host
+               passes no time-remaining for this state, so the
+               line ends at the facts: Finished · the last
+               part · the place. */
+            if (line.length() > 0) line.append(" · ");
+            line.append("Finished");
         }
         if (hasDoc && chunks > 0 && chunk >= 0) {
             line.append(" · part ").append(chunk + 1).append(" of ").append(chunks);
@@ -432,6 +440,17 @@ public final class NativeControlBar extends LinearLayout {
         lastCanContinue = canContinue;
         if ("playing".equals(playback)) btnPlayPause.setText("\u23F8 Pause");
         else if ("paused".equals(playback)) btnPlayPause.setText("\u25B6 Resume");
+        else if ("finished".equals(playback)) {
+            /* Build I (Q-H4): the one act a finished book
+               offers is labelled as what it does — read again
+               from the start — and the core's Play honors the
+               label exactly (its FINISHED branch re-opens at
+               part 1). The full label needs the row to itself:
+               Stop stands down in this state — there is
+               nothing sounding to stop — and returns with
+               every other state. */
+            btnPlayPause.setText("\u25B6 Read again from the start");
+        }
         else if (!hasDoc && !canContinue) btnPlayPause.setText("Choose a document");
         else btnPlayPause.setText("\u25B6 Play");
         /* The empty state's primary action is live by design
@@ -439,6 +458,8 @@ public final class NativeControlBar extends LinearLayout {
            rule: Play needs a document or a saved place. */
         btnPlayPause.setEnabled(hasDoc || canContinue || chooseDocumentAction != null);
 
+        btnStop.setVisibility("finished".equals(playback)
+                ? View.GONE : View.VISIBLE);
         btnStop.setEnabled("playing".equals(playback) || "paused".equals(playback));
 
         if ("listening".equals(voice)) {

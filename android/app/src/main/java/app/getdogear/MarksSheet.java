@@ -133,6 +133,12 @@ public final class MarksSheet {
         titleLine.setTextSize(17);
         titleLine.setTypeface(null, android.graphics.Typeface.BOLD);
         titleLine.setTextColor(0xFF10243E);
+        /* Build I (H-U4): one line, ellipsized — the same
+           discipline the deck's title took in Build H (D-13).
+           A long document title must not wrap and grow the
+           panel under the user's aim. */
+        titleLine.setSingleLine(true);
+        titleLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
         panel.addView(titleLine);
 
         confirmLine = new TextView(activity);
@@ -146,6 +152,11 @@ public final class MarksSheet {
            something to say; its height never changes. */
         confirmLine.setMinHeight(dp(26));
         confirmLine.setText("");
+        /* Build I (H-U4): one line, by construction — a
+           confirmation is a short sentence by design, and a
+           wrapped second line would move the action row. */
+        confirmLine.setSingleLine(true);
+        confirmLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
         panel.addView(confirmLine);
 
         panel.addView(actionButton("Save place", v -> {
@@ -165,9 +176,24 @@ public final class MarksSheet {
         listBox = new LinearLayout(activity);
         listBox.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(listBox);
+        /* Build I (H-U4): the list viewport's height is the
+           STANDING height — the fullest state's — from the
+           first frame. Through Build H2 the list was
+           content-sized (clamped at the same 216dp ceiling),
+           so the panel's total height still depended on how
+           many marks existed: the moment a save added the
+           confirm line's row to the list, the sheet grew
+           and the ACTION ROW ROSE under the user's next aim
+           (the USER seat watched the buttons come to rest
+           higher than where they were pressed). Now every
+           part of the panel is a fixed height — title one
+           line, confirm one reserved line, five action rows,
+           this viewport — so the sheet's geometry is the
+           same for 0 marks, 1 mark and 50, before a save
+           and after it. An emptier sheet simply has quiet
+           space under its "No marks yet" line. */
         LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(216));
         slp.setMargins(0, dp(8), 0, 0);
         scroll.setLayoutParams(slp);
         panel.addView(scroll);
@@ -212,24 +238,21 @@ public final class MarksSheet {
         clampListHeight();
     }
 
-    /** The marks list scrolls within a fixed ceiling — the
-     *  sheet's total height is bounded by construction, so
-     *  its geometry is the same for 0 marks and 50. */
+    /** The marks list viewport is a FIXED height (Build I,
+     *  H-U4 — see build()): the clamp this method used to
+     *  apply after every render is now the layout itself.
+     *  What remains is a guard, not a measurement: if any
+     *  path ever hands the viewport a different height, it
+     *  is put back — the sheet's geometry is a constant,
+     *  never a consequence of its contents. */
     private void clampListHeight() {
-        if (scrollBox == null || listBox == null) return;
-        scrollBox.post(() -> {
-            if (scrollBox == null || listBox == null) return;
-            int max = dp(216);
-            int want = listBox.getHeight();
-            LinearLayout.LayoutParams lp =
-                    (LinearLayout.LayoutParams) scrollBox.getLayoutParams();
-            int target = want <= 0 ? LinearLayout.LayoutParams.WRAP_CONTENT
-                    : Math.min(want, max);
-            if (lp.height != target) {
-                lp.height = target;
-                scrollBox.setLayoutParams(lp);
-            }
-        });
+        if (scrollBox == null) return;
+        LinearLayout.LayoutParams lp =
+                (LinearLayout.LayoutParams) scrollBox.getLayoutParams();
+        if (lp != null && lp.height != dp(216)) {
+            lp.height = dp(216);
+            scrollBox.setLayoutParams(lp);
+        }
     }
 
     private Button actionButton(String label, View.OnClickListener onClick) {
@@ -405,18 +428,62 @@ public final class MarksSheet {
                 .setNegativeButton("Cancel", null));
     }
 
+    /* Build I (Q-H1, the general law): NO typed content is
+       silently discarded anywhere in the app — and its twin:
+       no act is confirmed that did not happen. Through
+       Build H2, "Add tag" or "Save note" on an EMPTY field
+       closed the dialog, added nothing, and the sheet then
+       confirmed "Tag added — part N" over a tag that does
+       not exist: a false confirmation, worse than silence.
+       A required-field dialog now answers a blocked act IN
+       PLACE: the dialog stands, the (empty) field keeps its
+       focus, and the reason is written under the field; the
+       act lands only when there is something to land. The
+       Bookmark dialog is deliberately NOT of this shape:
+       its label is optional — an empty label is a valid
+       bookmark (the core names it for its part), so there
+       is no blocked act to explain. */
+
+    /** A blocked-act dialog's view: the input over a reason
+     *  line whose space is reserved from the first frame, so
+     *  the reason's arrival never moves the dialog either. */
+    private LinearLayout dialogBox(EditText input, TextView reason) {
+        LinearLayout box = new LinearLayout(activity);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(20), dp(8), dp(20), 0);
+        box.addView(input);
+        reason.setTextSize(13);
+        reason.setTextColor(0xFF8A4B00);
+        reason.setMinHeight(dp(20));
+        reason.setText("");
+        box.addView(reason);
+        return box;
+    }
+
     private void tagDialog() {
         final EditText input = new EditText(activity);
         input.setHint("Tag name");
         input.setTextColor(Color.BLACK);
-        showTextDialog(new AlertDialog.Builder(activity)
+        final TextView reason = new TextView(activity);
+        AlertDialog d = new AlertDialog.Builder(activity)
                 .setTitle("Tag this document")
-                .setView(input)
-                .setPositiveButton("Add tag", (d, w) -> {
-                    core.addTag(input.getText().toString(), PlayerCore.Source.BAR);
-                    afterAct("Tag added");
-                })
-                .setNegativeButton("Cancel", null));
+                .setView(dialogBox(input, reason))
+                .setPositiveButton("Add tag", null)
+                .setNegativeButton("Cancel", null)
+                .create();
+        d.setCanceledOnTouchOutside(false);
+        d.setOnShowListener(x -> d.getButton(
+                AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            if (input.getText().toString().trim().isEmpty()) {
+                reason.setText("Type the tag first \u2014 there is "
+                        + "nothing to add yet.");
+                return;
+            }
+            core.addTag(input.getText().toString(), PlayerCore.Source.BAR);
+            afterAct("Tag added");
+            d.dismiss();
+        }));
+        d.show();
     }
 
     private void noteDialog() {
@@ -425,14 +492,26 @@ public final class MarksSheet {
         input.setTextColor(Color.BLACK);
         input.setMinLines(2);
         input.setGravity(Gravity.TOP);
-        showTextDialog(new AlertDialog.Builder(activity)
+        final TextView reason = new TextView(activity);
+        AlertDialog d = new AlertDialog.Builder(activity)
                 .setTitle("Note at this place")
-                .setView(input)
-                .setPositiveButton("Save note", (d, w) -> {
-                    core.addNote(input.getText().toString(), PlayerCore.Source.BAR);
-                    afterAct("Note saved");
-                })
-                .setNegativeButton("Cancel", null));
+                .setView(dialogBox(input, reason))
+                .setPositiveButton("Save note", null)
+                .setNegativeButton("Cancel", null)
+                .create();
+        d.setCanceledOnTouchOutside(false);
+        d.setOnShowListener(x -> d.getButton(
+                AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            if (input.getText().toString().trim().isEmpty()) {
+                reason.setText("Write the note first \u2014 there is "
+                        + "nothing to save yet.");
+                return;
+            }
+            core.addNote(input.getText().toString(), PlayerCore.Source.BAR);
+            afterAct("Note saved");
+            d.dismiss();
+        }));
+        d.show();
     }
 
     private int dp(int v) {

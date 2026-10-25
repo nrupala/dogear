@@ -72,6 +72,95 @@ public class HtmlTextTest {
         assertEquals("&lt;", out);
     }
 
+    /* Build I (D-16): the decoder is complete, not a
+       hand-list. The L18 failure on Build H2 was &eacute;
+       stored, displayed and spoken spelled out. This battery
+       walks the classes: accented Latin-1 in both cases, the
+       symbol and punctuation sets, Greek, and numeric forms —
+       each spelled entity must come out as its character. */
+    @Test
+    public void theNamedEntityBatteryDecodes() {
+        String[][] cases = {
+                {"&eacute;", "é"}, {"&Eacute;", "É"},
+                {"&egrave;", "è"}, {"&ecirc;", "ê"},
+                {"&agrave;", "à"}, {"&Auml;", "Ä"},
+                {"&ccedil;", "ç"}, {"&Ccedil;", "Ç"},
+                {"&ntilde;", "ñ"}, {"&ouml;", "ö"},
+                {"&uuml;", "ü"}, {"&szlig;", "ß"},
+                {"&aelig;", "æ"}, {"&AElig;", "Æ"},
+                {"&oslash;", "ø"}, {"&aring;", "å"},
+                {"&oelig;", "œ"}, {"&scaron;", "š"},
+                {"&yuml;", "ÿ"}, {"&eth;", "ð"},
+                {"&THORN;", "Þ"}, {"&copy;", "©"},
+                {"&reg;", "®"}, {"&trade;", "™"},
+                {"&euro;", "€"}, {"&pound;", "£"},
+                {"&yen;", "¥"}, {"&cent;", "¢"},
+                {"&deg;", "°"}, {"&plusmn;", "±"},
+                {"&middot;", "·"}, {"&para;", "¶"},
+                {"&sect;", "§"}, {"&laquo;", "«"},
+                {"&raquo;", "»"}, {"&frac14;", "¼"},
+                {"&frac12;", "½"}, {"&frac34;", "¾"},
+                {"&iexcl;", "¡"}, {"&iquest;", "¿"},
+                {"&times;", "×"}, {"&divide;", "÷"},
+                {"&ndash;", "–"}, {"&mdash;", "—"},
+                {"&lsquo;", "‘"}, {"&rsquo;", "’"},
+                {"&ldquo;", "“"}, {"&rdquo;", "”"},
+                {"&hellip;", "…"}, {"&dagger;", "†"},
+                {"&Dagger;", "‡"}, {"&permil;", "‰"},
+                {"&prime;", "′"}, {"&Prime;", "″"},
+                {"&bull;", "•"}, {"&alpha;", "α"},
+                {"&Alpha;", "Α"}, {"&beta;", "β"},
+                {"&pi;", "π"}, {"&Sigma;", "Σ"},
+                {"&omega;", "ω"}, {"&Omega;", "Ω"},
+                {"&infin;", "∞"}, {"&ne;", "≠"},
+                {"&le;", "≤"}, {"&ge;", "≥"},
+                {"&forall;", "∀"}, {"&isin;", "∈"},
+                {"&sum;", "∑"}, {"&rarr;", "→"},
+                {"&larr;", "←"}, {"&harr;", "↔"},
+                {"&spades;", "♠"}, {"&hearts;", "♥"},
+                {"&amp;", "&"},
+                {"&lt;", "<"}, {"&gt;", ">"},
+                {"&quot;", "\""}, {"&apos;", "'"},
+        };
+        for (String[] c : cases) {
+            assertEquals("entity " + c[0], c[1],
+                    HtmlText.strip("<p>" + c[0] + "</p>"));
+        }
+    }
+
+    @Test
+    public void numericReferencesDecodeInBothForms() {
+        // &#233; and &#xE9; are both é; &#8212; is the em dash.
+        assertEquals("café — café",
+                HtmlText.strip("<p>caf&#233; &#8212; caf&#xE9;</p>"));
+    }
+
+    @Test
+    public void aDecodedAmpersandStartsNoNewReference() {
+        // One pass: "&#38;" is the character "&", and the
+        // "lt;" after it is plain text — never a bracket.
+        assertEquals("&lt;", HtmlText.strip("<p>&#38;lt;</p>"));
+        assertEquals("&#65;", HtmlText.strip("<p>&amp;#65;</p>"));
+    }
+
+    @Test
+    public void anUnknownEntityIsLeftAsWritten() {
+        // Text is never silently dropped for being unlisted.
+        assertEquals("a &notanentity; b",
+                HtmlText.strip("<p>a &notanentity; b</p>"));
+    }
+
+    @Test
+    public void entitiesDecodeInsideProse() {
+        // The TESTER seat's L18 fixture shape, verbatim class:
+        // the stored text must hold the character, not the name.
+        String out = HtmlText.strip(
+                "<p>The caf&eacute; owners along the quay ate "
+                        + "cr&egrave;me br&ucirc;l&eacute;e.</p>");
+        assertEquals("The café owners along the quay ate "
+                + "crème brûlée.", out);
+    }
+
     @Test
     public void plainTextPassesThroughUnchanged() {
         assertEquals("Just prose, no tags at all.",

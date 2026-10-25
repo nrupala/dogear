@@ -250,17 +250,45 @@ public final class LibraryView extends LinearLayout {
         textIn.setMaxLines(8);
         textIn.setVerticalScrollBarEnabled(true);
         box.addView(textIn);
-        new AlertDialog.Builder(getContext())
+        /* Build I (Q-H1, the general law): no typed content
+           is silently discarded anywhere in the app. Through
+           Build H2, ADD on an empty body closed this dialog
+           and took a typed title with it — no document, no
+           word, the typing simply gone (the QUALITY seat,
+           twice). The dialog now answers a blocked ADD in
+           place: it STANDS, the title stays in its field,
+           and the reason is written under the body in a line
+           whose space is reserved from the first frame. The
+           platform's button still dismisses on its own
+           schedule, so Add's handler is wired after the
+           dialog stands (the standard keep-open pattern) and
+           dismissal is this code's decision, not a default. */
+        final TextView reason = new TextView(getContext());
+        reason.setTextSize(13);
+        reason.setTextColor(0xFF8A4B00);
+        reason.setMinHeight(dp(20));
+        reason.setText("");
+        box.addView(reason);
+        final AlertDialog[] holder = new AlertDialog[1];
+        holder[0] = new AlertDialog.Builder(getContext())
                 .setTitle("Add pasted text")
                 .setView(box)
                 .setNegativeButton("Cancel", null)
-                .setPositiveButton("Add", (d, w) -> {
-                    String text = textIn.getText().toString();
-                    if (text.trim().isEmpty()) return;
-                    shell.addPastedText(titleIn.getText().toString(), text);
-                    refresh();
-                })
-                .show();
+                .setPositiveButton("Add", null)
+                .create();
+        holder[0].setOnShowListener(x -> holder[0].getButton(
+                AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String text = textIn.getText().toString();
+            if (text.trim().isEmpty()) {
+                reason.setText("Paste the text to read aloud first "
+                        + "\u2014 your title is kept; nothing was added.");
+                return;
+            }
+            shell.addPastedText(titleIn.getText().toString(), text);
+            refresh();
+            holder[0].dismiss();
+        }));
+        holder[0].show();
     }
 
     private int dp(int v) {

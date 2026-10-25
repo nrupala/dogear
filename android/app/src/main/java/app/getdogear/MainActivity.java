@@ -586,7 +586,11 @@ public final class MainActivity extends Activity
             info.parts = s.optInt("chunks", 0);
             info.playback = s.optString("playback", "none");
             info.voice = s.optString("voice", "idle");
-            info.remaining = remainingLabel(docId, s.optInt("chunk", -1));
+            /* Build I (Q-H4): a finished book has no time
+               remaining; the strip says Finished, not a
+               number that stopped being true. */
+            info.remaining = "finished".equals(info.playback) ? null
+                    : remainingLabel(docId, s.optInt("chunk", -1));
         } else if (marks != null && marks.hasAnyPosition()) {
             JSONObject target = marks.continueTarget(null);
             if (target != null) {
@@ -801,6 +805,20 @@ public final class MainActivity extends Activity
         if (doc == null) return;
         int total = snap.optInt("chunks", 0);
         int target = Math.max(0, Math.min(chunk, Math.max(0, total - 1)));
+        /* Build I (D-17): the pre-jump state is read BEFORE
+           the re-seed, from the core's own truth. The rule is
+           preservation, exactly: playing keeps playing from
+           the new place; paused lands PAUSED at the new
+           place (the core's jumpSession holds it — Build H's
+           plain re-seed dropped it to STOPPED, because a
+           re-seed's rest state is stopped by the D-2 law);
+           stopped lands stopped. playAfter is the steering
+           caller's explicit resumption decision (the Talk
+           flow's) and may raise a held state to playing; it
+           never lowers one. */
+        String before = snap.optString("playback", "");
+        boolean feedAfter = playAfter || "playing".equals(before);
+        boolean holdPaused = "paused".equals(before) && !feedAfter;
         feeder.halt();
         /* Build H (D-9): a jump is the user's act — an in-flight
            Talk announcement does not talk over it. (The feeder's
@@ -809,18 +827,14 @@ public final class MainActivity extends Activity
            own accounting honest instead of declaring the piece
            lost to a jump the user chose.) */
         announcer.cancel();
-        core.sessionStarted(docId, doc.title, target, total);
-        if (playAfter) {
+        core.jumpSession(docId, doc.title, target, total, holdPaused);
+        if (feedAfter) {
             /* Play-state preservation is structural, not
                incidental: the re-feed is posted onto the SAME
                looper the core's session runnable rides, behind
                it — the session lands at the target first, then
                the feeder feeds exactly that chunk and
-               utteranceSpoke returns the machine to PLAYING.
-               A jump made while paused or stopped posts no
-               feed: the place moves, and the deck's status line
-               states the new place and the stopped state in
-               words (the seats' D-9 rule). */
+               utteranceSpoke returns the machine to PLAYING. */
             main.post(() -> feeder.startFromSnapshot());
         }
     }
@@ -1104,12 +1118,18 @@ public final class MainActivity extends Activity
         @Override
         public void onSnapshot(JSONObject snapshot) {
             diag.snapshot(snapshot, System.currentTimeMillis());
-            maybeRequestNotificationPermission(snapshot);
             String doc = snapshot.isNull("docId")
                     ? null : snapshot.optString("docId", null);
             /* Build E: the bar's pushed facts (time remaining,
-               marks count) land BEFORE its render reads them. */
-            controlBar.setTimeRemaining(doc == null ? null
+               marks count) land BEFORE its render reads them.
+               Build I (Q-H4): at Finished there is no time
+               remaining to claim — the label is null and the
+               surfaces say Finished instead (through H2 a
+               finished book stood at "under a minute left"
+               forever). */
+            boolean finished = "finished".equals(
+                    snapshot.optString("playback", ""));
+            controlBar.setTimeRemaining(doc == null || finished ? null
                     : remainingLabel(doc, snapshot.optInt("chunk", -1)));
             controlBar.setMarksCount(doc == null ? 0 : marksCount(doc));
             controlBar.render(snapshot);
@@ -1273,37 +1293,66 @@ public final class MainActivity extends Activity
     // Small helpers
     // ----------------------------------------------------------
 
-    /* Build H (QUALITY baseline B3): the notification
-       permission is asked AT THE NEED, not cold. Through
-       Build G onCreate asked before any document or playback
-       existed — the first thing a first launch showed was a
-       permission sheet for a feature the user had not met.
-       The notification exists for one thing: background
-       playback (the service's media controls and its survival
-       off-screen). The ask now rides the first transition
-       into PLAYING — the moment background play becomes a
-       real possibility — and happens once per install,
-       remembered in prefs; it is never re-asked on relaunch
-       (the TESTER seat's L3 note: every relaunch re-raised
-       the cold ask). Denial costs nothing: playback continues,
-       the notification simply stays unshown. */
-    private void maybeRequestNotificationPermission(JSONObject snapshot) {
-        if (snapshot == null
-                || !"playing".equals(snapshot.optString("playback", ""))) {
+    /* The notification permission (Build H baseline B3, moved
+       by Build I, H-U1): the ask may NEVER stand between the
+       user and the first listen. Build H asked at the first
+       transition into PLAYING — at the need, but the need
+       arrived as a tollgate on the path from "I chose my
+       story" to "I hear my story": the USER seat's first
+       hesitation on H2, verbatim. The ask now arms at the
+       first BACKGROUNDED moment during playback (the user
+       has heard the app, left it playing, and background
+       playback — the notification's one job — is a fact of
+       their use, not a hypothesis) and fires when they next
+       return to the app. Once per install, remembered in
+       prefs; denial costs nothing: playback continues, the
+       notification simply stays unshown. If the user never
+       backgrounds a playing book, they are never asked —
+       that is the point. */
+    private boolean notifAskArmed;
+
+    private void armNotificationAskOnBackground() {
+        if (core == null || isFinishing() || isChangingConfigurations()) {
+            return;
+        }
+        if (!"playing".equals(core.snapshot().optString("playback", ""))) {
             return;
         }
         if (Build.VERSION.SDK_INT < 33) return;
         if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                 == PackageManager.PERMISSION_GRANTED) return;
+        if (getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getBoolean("notifAsked", false)) return;
+        notifAskArmed = true;
+    }
+
+    private void fireArmedNotificationAsk() {
+        if (!notifAskArmed) return;
+        notifAskArmed = false;
         android.content.SharedPreferences p =
                 getSharedPreferences(PREFS, MODE_PRIVATE);
         if (p.getBoolean("notifAsked", false)) return;
+        if (Build.VERSION.SDK_INT < 33) return;
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED) return;
         p.edit().putBoolean("notifAsked", true).apply();
         try {
             requestPermissions(
                     new String[]{Manifest.permission.POST_NOTIFICATIONS},
                     REQ_NOTIF);
         } catch (Exception ignored) {}
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        fireArmedNotificationAsk();
+    }
+
+    @Override
+    protected void onStop() {
+        armNotificationAskOnBackground();
+        super.onStop();
     }
 
     private int dp(int v) {

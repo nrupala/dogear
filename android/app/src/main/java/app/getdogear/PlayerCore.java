@@ -39,7 +39,16 @@ import org.json.JSONObject;
  */
 public final class PlayerCore {
 
-    public enum Playback { NONE, PLAYING, PAUSED, STOPPED }
+    /* FINISHED (Build I, Q-H4): a document that has been read
+       to its end is a state of its own, not a flavour of
+       stopped. Through Build H2 the book simply stopped —
+       the deck kept a time-remaining claim and a bare Play
+       (which replayed the final part), and no surface ever
+       acknowledged the plain fact that the reading was done.
+       The feeder raises FINISHED (documentFinished); it is
+       left by playing (which re-opens the document at its
+       start — doPlay), by a new session, or by removal. */
+    public enum Playback { NONE, PLAYING, PAUSED, STOPPED, FINISHED }
     public enum Voice { IDLE, LISTENING, PROCESSING }
     public enum Source { PAGE, BAR, MEDIA, SYSTEM }
 
@@ -153,6 +162,39 @@ public final class PlayerCore {
 
     public void sessionStarted(final String newDocId, final String newTitle,
                                final int seedChunk, final int seedChunks) {
+        startSession(newDocId, newTitle, seedChunk, seedChunks,
+                Playback.STOPPED, false);
+    }
+
+    /** A place JUMP inside the open document (Build I,
+     *  defect D-17, correcting the D-9 rule). A jump re-seeds
+     *  the session at the target — and a re-seed's rest state
+     *  is STOPPED by the D-2 law, which silently DROPPED a
+     *  paused session to stopped: the place moved, but the
+     *  state the user was in did not survive the move (the
+     *  USER seat read the changed word and had to check what
+     *  it meant; the TESTER seat's L21 case 2 failed it
+     *  twice). Preservation means all three states, exactly:
+     *  the host passes holdPaused when the pre-jump state was
+     *  PAUSED, and the re-seed lands PAUSED at the target,
+     *  in the same queue unit — no window where the machine
+     *  wears the wrong state. A jump while playing needs no
+     *  rest state at all: the host re-feeds and
+     *  utteranceSpoke raises PLAYING at the target. The
+     *  jumped place is also persisted as the live position,
+     *  so every surface's "your place" and any later resume
+     *  agree with where the jump landed. */
+    public void jumpSession(final String jumpDocId, final String jumpTitle,
+                            final int targetChunk, final int totalChunks,
+                            final boolean holdPaused) {
+        startSession(jumpDocId, jumpTitle, targetChunk, totalChunks,
+                holdPaused ? Playback.PAUSED : Playback.STOPPED, true);
+    }
+
+    private void startSession(final String newDocId, final String newTitle,
+                              final int seedChunk, final int seedChunks,
+                              final Playback restState,
+                              final boolean persistPlace) {
         poster.post(new Runnable() { @Override public void run() {
             docId = newDocId;
             title = newTitle == null ? "" : newTitle;
@@ -166,12 +208,16 @@ public final class PlayerCore {
             // playing") and the new document never fed — the bar
             // claimed playing over silence, forever. Playback truth
             // restarts with the session.
-            playback = Playback.STOPPED;
+            playback = restState;
             voice = Voice.IDLE;
             JSONObject saved = store.positionFor(docId);
             if (saved != null) {
                 if (chunk < 0) chunk = saved.optInt("chunk", -1);
                 if (chunks <= 0) chunks = saved.optInt("chunks", 0);
+            }
+            if (persistPlace && docId != null && chunk >= 0) {
+                store.savePosition(docId, title, chunk, chunks,
+                        false, clock.nowMs());
             }
             emitSnapshot();
         }});
@@ -183,7 +229,8 @@ public final class PlayerCore {
             title = "";
             chunk = -1;
             chunks = 0;
-            if (playback == Playback.PLAYING || playback == Playback.PAUSED) {
+            if (playback == Playback.PLAYING || playback == Playback.PAUSED
+                    || playback == Playback.FINISHED) {
                 playback = Playback.STOPPED;
             }
             emitSnapshot();
@@ -208,10 +255,29 @@ public final class PlayerCore {
             title = "";
             chunk = -1;
             chunks = 0;
-            if (playback == Playback.PLAYING || playback == Playback.PAUSED) {
+            if (playback == Playback.PLAYING || playback == Playback.PAUSED
+                    || playback == Playback.FINISHED) {
                 playback = Playback.STOPPED;
             }
             if (ended != null) store.deleteDocument(ended);
+            emitSnapshot();
+        }});
+    }
+
+    /** The open document has been read to its end (Build I,
+     *  Q-H4). Raised by the feeder at the book's natural end
+     *  — never by a user press: Stop stays Stop, and a book
+     *  the user stopped mid-way never wears Finished. The
+     *  place persists (the end IS the place now), and the
+     *  surfaces take the acknowledgment from the snapshot:
+     *  the deck and strip read "Finished", and Play from
+     *  here is labelled — and acts — as reading again from
+     *  the start (doPlay's FINISHED branch). */
+    public void documentFinished(final Source source) {
+        poster.post(new Runnable() { @Override public void run() {
+            if (docId == null || playback != Playback.PLAYING) return;
+            playback = Playback.FINISHED;
+            persistPlace(false);
             emitSnapshot();
         }});
     }
@@ -293,8 +359,12 @@ public final class PlayerCore {
 
     public void stop(final Source source) {
         poster.post(new Runnable() { @Override public void run() {
-            if (playback == Playback.STOPPED || playback == Playback.NONE) {
+            if (playback == Playback.STOPPED || playback == Playback.NONE
+                    || playback == Playback.FINISHED) {
                 // Still persist the place: Stop means "keep my place".
+                // FINISHED stands (Build I): nothing is sounding,
+                // and the end the feeder acknowledged is not
+                // un-happened by a press with nothing to stop.
                 persistPlace(false);
                 return;
             }
@@ -321,6 +391,29 @@ public final class PlayerCore {
             if (playback == Playback.PLAYING) return;
             if (playback == Playback.PAUSED) {
                 doResume(source);
+                return;
+            }
+            if (playback == Playback.FINISHED && docId != null) {
+                /* Build I (Q-H4): Play from Finished is "read
+                   again from the start" — the surfaces label it
+                   so, and the act must match the label. The host
+                   re-opens the document at chunk 0 and plays,
+                   exactly the continue shape with the target
+                   pinned to the first part. (Through Build H2,
+                   Play here emitted the bare play control and
+                   the feeder replayed the FINAL part — the one
+                   part nobody pressing it meant.) */
+                try {
+                    JSONObject ev = new JSONObject();
+                    ev.put("t", "continue");
+                    ev.put("docId", docId);
+                    ev.put("chunk", 0);
+                    ev.put("chunks", chunks);
+                    ev.put("pinned", false);
+                    ev.put("title", title);
+                    emitPageEvent(ev);
+                } catch (Exception ignored) {}
+                emitSnapshot();
                 return;
             }
             if (docId != null) {

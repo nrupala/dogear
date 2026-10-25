@@ -63,9 +63,27 @@ public final class SettingsView extends ScrollView {
             new Tier("whisper-large-v3", "Large", 1564656626L, false),
     };
 
+    /** A shelf card's moving parts (Build I, Q-H2): the head
+     *  line (model · size) and the state line beneath it are
+     *  SEPARATE views. Through Build H2 one text view carried
+     *  both, laid out by weight beside the chip button — a
+     *  weighted child in a horizontal row has its wrapped
+     *  height measured against the row the button sets, and
+     *  the longest texts (the held models' reasons) overflowed
+     *  the card and were clipped mid-sentence at its bottom
+     *  edge (the QUALITY seat: the full reason existed only in
+     *  the tap dialog). The state now stands on its own
+     *  full-width line under the head, and the card takes its
+     *  natural height: every clause renders whole. */
+    private static final class TierRow {
+        TextView head;
+        TextView state;
+        Button action;
+    }
+
     private final Shell shell;
     private final LinearLayout body;
-    private final Map<String, TextView> tierLines = new HashMap<String, TextView>();
+    private final Map<String, TierRow> tierRows = new HashMap<String, TierRow>();
     private final Map<String, Button> tierButtons = new HashMap<String, Button>();
     private final Map<String, String> tierStates = new HashMap<String, String>();
     private TextView licenceState;
@@ -106,9 +124,15 @@ public final class SettingsView extends ScrollView {
                 + "you pick downloads once, under its own licence, and "
                 + "then works offline. Base is the recommended start."));
         for (final Tier tier : TIERS) {
+            /* Build I (Q-H2): the card is a vertical stack —
+               a head row (model · size, with the state chip)
+               over the state line at full width (see TierRow:
+               a weighted text beside the chip had its wrapped
+               height clipped by the row; a full-width line
+               under it cannot be). */
             LinearLayout row = new LinearLayout(getContext());
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setPadding(dp(12), dp(8), dp(8), dp(8));
+            row.setOrientation(LinearLayout.VERTICAL);
+            row.setPadding(dp(12), dp(8), dp(12), dp(10));
             /* Depth (Build E): each model on the shelf is a
                card on the ground, like a document in the
                Library — the shelf is a shelf. */
@@ -123,10 +147,14 @@ public final class SettingsView extends ScrollView {
                     LinearLayout.LayoutParams.WRAP_CONTENT);
             rlp.setMargins(0, 0, 0, dp(8));
             row.setLayoutParams(rlp);
-            TextView line = new TextView(getContext());
-            line.setTextSize(14);
-            line.setTextColor(0xFF10243E);
-            row.addView(line, new LinearLayout.LayoutParams(
+            LinearLayout headRow = new LinearLayout(getContext());
+            headRow.setOrientation(LinearLayout.HORIZONTAL);
+            headRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            TextView head = new TextView(getContext());
+            head.setTextSize(14);
+            head.setTextColor(0xFF10243E);
+            head.setTypeface(null, Typeface.BOLD);
+            headRow.addView(head, new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             Button action = new Button(getContext());
             action.setAllCaps(false);
@@ -143,9 +171,19 @@ public final class SettingsView extends ScrollView {
             action.setElevation(dp(2));
             action.setTextColor(0xFF10243E);
             action.setOnClickListener(v -> tierAction(tier));
-            row.addView(action);
+            headRow.addView(action);
+            row.addView(headRow);
+            TextView state = new TextView(getContext());
+            state.setTextSize(13.5f);
+            state.setTextColor(0xFF33475B);
+            state.setPadding(0, dp(3), 0, 0);
+            row.addView(state);
             body.addView(row);
-            tierLines.put(tier.id, line);
+            TierRow tr = new TierRow();
+            tr.head = head;
+            tr.state = state;
+            tr.action = action;
+            tierRows.put(tier.id, tr);
             tierButtons.put(tier.id, action);
         }
     }
@@ -183,15 +221,36 @@ public final class SettingsView extends ScrollView {
        tells a person nothing (QUALITY C8). A voice now
        presents as its language in words, on-device or online,
        and its distinguishing code ("SFG") — "English (United
-       States) · on device · SFG" — with the raw name one layer
-       down, as the chooser row's second line. */
+       States) · on device · SFG". (Build I amends D-14's last
+       clause: the raw name no longer stands as the chooser
+       row's second line at all — the seats read it as noise
+       (H-U2). It lives behind the row's Details affordance;
+       the only second line a row may carry now is the online
+       caution. See voiceDialog.) */
+    /** The online-voice caution, word for word wherever an
+     *  online voice is offered (Build I, Q-H5): the picker
+     *  row, the Details dialog, the current-voice line. One
+     *  constant, so the surfaces can never drift apart. */
+    static final String ONLINE_CAUTION =
+            "Online voice \u2014 reading is sent over the internet "
+            + "for this voice";
+
+    /** A voice is ONLINE when its engine name carries the
+     *  -network marker (its -local twins are the on-device
+     *  ones); the marker is the engine's own declaration. */
+    static boolean isOnlineVoiceName(String name) {
+        return name != null && name.contains("-network");
+    }
+
     static final class VoiceInfo {
         final String name;    // raw engine name (the identity)
         final String label;   // human-readable (the presentation)
+        final boolean online; // the engine's -network marker
 
         VoiceInfo(String name, String label) {
             this.name = name;
             this.label = label;
+            this.online = isOnlineVoiceName(name);
         }
     }
 
@@ -255,11 +314,51 @@ public final class SettingsView extends ScrollView {
 
     private void renderVoiceState() {
         if (voiceState == null) return;
-        voiceState.setText("Voice: " + labelForCurrentVoice()
+        String text = "Voice: " + labelForCurrentVoice()
                 + " \u00B7 Speed: "
-                + String.format(java.util.Locale.US, "%.2f\u00D7", shell.speechRate()));
+                + String.format(java.util.Locale.US, "%.2f\u00D7",
+                        shell.speechRate());
+        /* Build I (Q-H5): when the CURRENT voice is an online
+           one, the caution stands on this surface too \u2014 the
+           page's standing "nothing leaves the device" lines
+           must never read as covering a voice that sends
+           reading over the internet to be spoken. */
+        if (isOnlineVoiceName(currentVoice)) {
+            text += " " + ONLINE_CAUTION + ".";
+        }
+        voiceState.setText(text);
     }
 
+    /* Build I (H-U2 + Q-H5): the picker is rebuilt around
+       one rule — ROWS CARRY HUMAN NAMES ONLY. Through
+       Build H2 each row's second line was the raw engine
+       code ("ar-xa-x-arc-local"), and the list opened at
+       Albanian with a hundred rows of them: the human first
+       line read fine (the USER seat said so) but the code
+       line was noise a listener should never have to parse.
+       The code now lives behind a per-row Details affordance
+       (its own dialog: engine name + the on-device/online
+       fact in words). ONLINE voices (their engine name
+       carries -network) carry the plain caution ON THE ROW,
+       in place of any code — the only second line a row may
+       have — so the nothing-leaves-the-device claim never
+       stands unqualified beside them. A name filter stands
+       over the list: type, and the rows narrow to matches. */
+    /* Build I (H-U2 + Q-H5): the picker is rebuilt around
+       one rule \u2014 ROWS CARRY HUMAN NAMES ONLY. Through
+       Build H2 each row's second line was the raw engine
+       code ("ar-xa-x-arc-local"), and the list opened at
+       Albanian with a hundred rows of them: the human first
+       line read fine (the USER seat said so) but the code
+       line was noise a listener should never have to parse.
+       The code now lives behind a per-row Details affordance
+       (its own dialog: the engine name + the on-device/online
+       fact in words). ONLINE voices (their engine name
+       carries -network) carry the plain caution ON THE ROW,
+       in place of any code \u2014 the only second line a row may
+       have \u2014 so the nothing-leaves-the-device claim never
+       stands unqualified beside them. A name filter stands
+       over the list: type, and the rows narrow to matches. */
     private void voiceDialog() {
         if (voiceInfos == null || voiceInfos.isEmpty()) {
             note("No voices were found on this device yet \u2014 the "
@@ -267,55 +366,137 @@ public final class SettingsView extends ScrollView {
                     + "in a moment.");
             return;
         }
-        /* Two lines per voice (D-14): the human label is the
-           primary line; the raw engine name stands beneath it,
-           smaller and dimmer — one layer down, never the label.
-           The current voice is marked in words. */
-        final List<VoiceInfo> infos = voiceInfos;
+        LinearLayout box = new LinearLayout(getContext());
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(16), dp(8), dp(16), 0);
+        final EditText search = new EditText(getContext());
+        search.setHint("Type to filter by name");
+        search.setSingleLine(true);
+        box.addView(search);
+        final TextView noMatch = new TextView(getContext());
+        noMatch.setTextSize(13.5f);
+        noMatch.setTextColor(0xFF8A4B00);
+        noMatch.setPadding(0, dp(8), 0, 0);
+        noMatch.setVisibility(View.GONE);
+        box.addView(noMatch);
         ListView list = new ListView(getContext());
-        list.setAdapter(new BaseAdapter() {
-            @Override public int getCount() { return infos.size(); }
-            @Override public Object getItem(int i) { return infos.get(i); }
+        list.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(320)));
+        box.addView(list);
+        final java.util.List<VoiceInfo> shown =
+                new java.util.ArrayList<VoiceInfo>(voiceInfos);
+        final AlertDialog[] holder = new AlertDialog[1];
+        final BaseAdapter adapter = new BaseAdapter() {
+            @Override public int getCount() { return shown.size(); }
+            @Override public Object getItem(int i) { return shown.get(i); }
             @Override public long getItemId(int i) { return i; }
-            @Override public View getView(int i, View convert, ViewGroup parent) {
+            @Override public View getView(int i, View convert,
+                                          ViewGroup parent) {
                 LinearLayout row;
-                TextView primary, secondary;
-                if (convert instanceof LinearLayout) {
+                TextView primary, caution, details;
+                if (convert instanceof LinearLayout
+                        && convert.getTag() instanceof Object[]) {
                     row = (LinearLayout) convert;
-                    primary = (TextView) row.getChildAt(0);
-                    secondary = (TextView) row.getChildAt(1);
+                    Object[] tag = (Object[]) row.getTag();
+                    primary = (TextView) tag[0];
+                    caution = (TextView) tag[1];
+                    details = (TextView) tag[2];
                 } else {
                     row = new LinearLayout(getContext());
-                    row.setOrientation(LinearLayout.VERTICAL);
-                    row.setPadding(dp(20), dp(10), dp(20), dp(10));
+                    row.setOrientation(LinearLayout.HORIZONTAL);
+                    row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+                    row.setPadding(dp(20), dp(10), dp(8), dp(10));
+                    LinearLayout texts = new LinearLayout(getContext());
+                    texts.setOrientation(LinearLayout.VERTICAL);
                     primary = new TextView(getContext());
                     primary.setTextSize(15);
                     primary.setTextColor(0xFF10243E);
-                    secondary = new TextView(getContext());
-                    secondary.setTextSize(12);
-                    secondary.setTextColor(0xFF5A6B7F);
-                    row.addView(primary);
-                    row.addView(secondary);
+                    texts.addView(primary);
+                    caution = new TextView(getContext());
+                    caution.setTextSize(12.5f);
+                    caution.setTextColor(0xFF8A4B00);
+                    texts.addView(caution);
+                    row.addView(texts, new LinearLayout.LayoutParams(
+                            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+                    details = new TextView(getContext());
+                    details.setText("Details");
+                    details.setTextSize(13.5f);
+                    details.setTextColor(0xFF175C4C);
+                    details.setPadding(dp(12), dp(10), dp(12), dp(10));
+                    row.addView(details);
+                    row.setTag(new Object[]{primary, caution, details});
                 }
-                VoiceInfo info = infos.get(i);
+                final VoiceInfo info = shown.get(i);
                 primary.setText(info.label + (info.name.equals(currentVoice)
                         ? " \u00B7 in use" : ""));
-                secondary.setText(info.name);
+                if (info.online) {
+                    caution.setText(ONLINE_CAUTION);
+                    caution.setVisibility(View.VISIBLE);
+                } else {
+                    caution.setVisibility(View.GONE);
+                }
+                details.setOnClickListener(
+                        v -> voiceDetailsDialog(info));
+                row.setOnClickListener(v -> {
+                    shell.setSpeechVoice(info.name);
+                    currentVoice = info.name;
+                    renderVoiceState();
+                    if (holder[0] != null) holder[0].dismiss();
+                });
                 return row;
             }
-        });
-        final AlertDialog[] holder = new AlertDialog[1];
-        list.setOnItemClickListener((parent, view, which, id) -> {
-            VoiceInfo info = infos.get(which);
-            shell.setSpeechVoice(info.name);
-            currentVoice = info.name;
-            renderVoiceState();
-            if (holder[0] != null) holder[0].dismiss();
+        };
+        list.setAdapter(adapter);
+        search.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(
+                    CharSequence s, int a, int b, int c) {}
+            @Override public void onTextChanged(
+                    CharSequence s, int a, int b, int c) {}
+            @Override public void afterTextChanged(android.text.Editable s) {
+                String q = s == null ? "" : s.toString()
+                        .trim().toLowerCase(java.util.Locale.US);
+                shown.clear();
+                for (VoiceInfo info : voiceInfos) {
+                    if (q.isEmpty() || info.label
+                            .toLowerCase(java.util.Locale.US).contains(q)) {
+                        shown.add(info);
+                    }
+                }
+                adapter.notifyDataSetChanged();
+                if (shown.isEmpty()) {
+                    noMatch.setText("No voice matches \u201C" + s
+                            + "\u201D \u2014 clear the filter to see "
+                            + "every voice.");
+                    noMatch.setVisibility(View.VISIBLE);
+                } else {
+                    noMatch.setVisibility(View.GONE);
+                }
+            }
         });
         holder[0] = new AlertDialog.Builder(getContext())
                 .setTitle("Choose a voice")
-                .setView(list)
+                .setView(box)
                 .setNegativeButton("Cancel", null)
+                .create();
+        holder[0].show();
+    }
+
+    /* The Details affordance's dialog: where the engine code
+       lives now, together with the network fact in words \u2014
+       reached BY CHOICE, never printed on the row. */
+    private void voiceDetailsDialog(VoiceInfo info) {
+        String body = "Engine name: " + info.name + "\n\n"
+                + (info.online
+                    ? ONLINE_CAUTION + ". The words of the "
+                      + "document are sent over the internet to "
+                      + "be turned into speech for this voice."
+                    : "This voice runs on this device \u2014 "
+                      + "the reading stays on the device; "
+                      + "nothing is sent anywhere to speak it.");
+        new AlertDialog.Builder(getContext())
+                .setTitle(info.label)
+                .setMessage(body)
+                .setPositiveButton("OK", null)
                 .show();
     }
 
@@ -359,7 +540,17 @@ public final class SettingsView extends ScrollView {
         verify.setAllCaps(false);
         verify.setOnClickListener(v -> {
             String token = keyInput.getText().toString().trim();
-            if (token.isEmpty()) return;
+            if (token.isEmpty()) {
+                /* Build I (Q-H1, the general law): an act
+                   that cannot proceed answers IN PLACE — an
+                   empty field tapped "Save & verify" used to
+                   return in silence, indistinguishable from a
+                   broken button. */
+                renderLicenceState("Paste a licence key first "
+                        + "\u2014 the field above is empty; nothing "
+                        + "was checked.");
+                return;
+            }
             /* Masked display (below) is not a key: never store
                the mask as if it were one. */
             if (token.indexOf('\u2022') >= 0) {
@@ -436,14 +627,20 @@ public final class SettingsView extends ScrollView {
         EngineHost host = shell.engineHost();
         boolean unlocked = shell.licence().isUnlocked();
         for (Tier tier : TIERS) {
-            TextView line = tierLines.get(tier.id);
+            TierRow row = tierRows.get(tier.id);
             Button action = tierButtons.get(tier.id);
-            if (line == null || action == null) continue;
-            String state = tierStates.get(tier.id);
-            StringBuilder sb = new StringBuilder();
-            sb.append(tier.label).append(" \u00B7 ").append(sizeLabel(tier.bytes));
+            if (row == null || action == null) continue;
+            String tierState = tierStates.get(tier.id);
+            /* Build I (Q-H2): head and state are separate
+               views now (see TierRow) — the head carries the
+               model's name and size; the state stands on its
+               own full-width line under it, so the longest
+               clause (the held models' reason) wraps inside
+               the card's natural height and is never clipped
+               against the chip's row. */
+            row.head.setText(tier.label + " \u00B7 " + sizeLabel(tier.bytes));
             if (!tier.runnable) {
-                sb.append(" \u00B7 Not offered yet \u2014 it needs more "
+                row.state.setText("Not offered yet \u2014 it needs more "
                         + "memory than the in-app engine can safely use.");
                 action.setText("Held");
                 /* Build F (Q-2): ENABLED. A chip shaped as a
@@ -452,20 +649,20 @@ public final class SettingsView extends ScrollView {
                    tap died in silence and the chip read as a
                    broken button. There are no bare disabled
                    states on this surface: the two remaining
-                   disabled renderings (Checking…, Downloading…)
+                   disabled renderings (Checking\u2026, Downloading\u2026)
                    are live progress, self-resolving and
                    re-queried on every render pass. */
                 action.setEnabled(true);
             } else if (!unlocked) {
-                sb.append(" \u00B7 Part of the unlock.");
+                row.state.setText("Part of the unlock.");
                 action.setText("Needs unlock");
                 action.setEnabled(true);
-            } else if (state == null) {
-                sb.append(" \u00B7 Checking\u2026");
+            } else if (tierState == null) {
+                row.state.setText("Checking\u2026");
                 action.setText("\u2026");
                 action.setEnabled(false);
                 if (host != null) host.status(reqSeq++, tier.id);
-            } else if ("downloading".equals(state)) {
+            } else if ("downloading".equals(tierState)) {
                 /* Shelf-truth fix (Build D, from the finishing
                    run's observation): a tier in flight used to
                    fall into the else branch below and render as
@@ -477,21 +674,20 @@ public final class SettingsView extends ScrollView {
                    so a stale local claim reconciles with the
                    engine's standing instead of waiting for a
                    navigation. */
-                sb.append(" \u00B7 Downloading\u2026");
+                row.state.setText("Downloading\u2026");
                 action.setText("Downloading\u2026");
                 action.setEnabled(false);
                 if (host != null) host.status(reqSeq++, tier.id);
-            } else if ("installed".equals(state)) {
-                sb.append(" \u00B7 Installed");
-                if (tier.id.equals(selectedModel)) sb.append(" \u00B7 In use");
+            } else if ("installed".equals(tierState)) {
+                row.state.setText("Installed" + (tier.id.equals(selectedModel)
+                        ? " \u00B7 In use" : ""));
                 action.setText("Remove");
                 action.setEnabled(true);
             } else {
-                sb.append(" \u00B7 Not downloaded");
+                row.state.setText("Not downloaded");
                 action.setText("Download");
                 action.setEnabled(true);
             }
-            line.setText(sb.toString());
         }
         if (host != null && unlocked) host.selectedModel(reqSeq++);
     }
@@ -535,10 +731,10 @@ public final class SettingsView extends ScrollView {
     }
 
     private void renderTier(Tier tier, String note) {
-        TextView line = tierLines.get(tier.id);
-        if (line != null) {
-            line.setText(tier.label + " \u00B7 " + sizeLabel(tier.bytes)
-                    + " \u00B7 " + note);
+        TierRow row = tierRows.get(tier.id);
+        if (row != null) {
+            row.head.setText(tier.label + " \u00B7 " + sizeLabel(tier.bytes));
+            row.state.setText(note);
         }
     }
 
@@ -623,6 +819,12 @@ public final class SettingsView extends ScrollView {
                 if (!plan.isEmpty()) sb.append(" \u00B7 ").append(plan);
             }
             sb.append(". Listening is unlimited and two-way voice is yours.");
+            /* Build I (Q-H1): a transient note (an in-place
+               answer like the empty-key one) shows on the
+               unlocked surface too — this branch used to drop
+               it, so the answer existed only for locked and
+               unverified users. */
+            if (transientNote != null) sb.append(" ").append(transientNote);
         } else if (licence.token() != null) {
             sb.append("A licence key is saved but not verified yet. ");
             sb.append(transientNote != null ? transientNote
