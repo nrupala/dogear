@@ -119,6 +119,16 @@ public final class PlayerCore {
             title = newTitle == null ? "" : newTitle;
             chunks = seedChunks;
             chunk = seedChunk;
+            // EXERCISE D-2 (2026-10-24): a new session is NOT
+            // playing until the feeder speaks its first chunk
+            // (utteranceSpoke raises PLAYING). The page-era code
+            // left the previous session's PLAYING in place across
+            // the swap, so the host's play() no-opped ("already
+            // playing") and the new document never fed — the bar
+            // claimed playing over silence, forever. Playback truth
+            // restarts with the session.
+            playback = Playback.STOPPED;
+            voice = VoiceState.IDLE;
             JSONObject saved = store.positionFor(docId);
             if (saved != null) {
                 if (chunk < 0) chunk = saved.optInt("chunk", -1);

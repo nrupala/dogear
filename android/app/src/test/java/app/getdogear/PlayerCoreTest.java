@@ -102,6 +102,21 @@ public class PlayerCoreTest {
     private void speakChunk(int i, int n) { core.utteranceSpoke(i, n); }
 
     @Test
+    public void newSessionDoesNotInheritPlaying() {
+        // Exercise D-2 (2026-10-24): switching documents mid-
+        // utterance left the old session's PLAYING standing, the
+        // host's play() no-opped, and the new document never fed
+        // — the bar claimed playing over silence. A new session
+        // starts STOPPED; its first spoken chunk raises PLAYING.
+        speakChunk(2, 10);
+        assertEquals(PlayerCore.Playback.PLAYING, core.playback());
+        core.sessionStarted("doc2", "Second Document", 0, 5);
+        assertEquals(PlayerCore.Playback.STOPPED, core.playback());
+        core.play(PlayerCore.Source.BAR);
+        assertEquals(1, listener.controls("play").size());
+    }
+
+    @Test
     public void pauseIsIdempotentAndEchoesOnceToThePage() {
         speakChunk(3, 40);
         core.pause(PlayerCore.Source.BAR);
