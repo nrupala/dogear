@@ -35,7 +35,7 @@ jobs:
       - name: Smoke test (jsdom drives the real payload)
         working-directory: extension/tests
         run: |
-          npm ci
+          npm install --no-audit --no-fund
           node smoke.test.mjs
 
       - name: Build the three store zips
