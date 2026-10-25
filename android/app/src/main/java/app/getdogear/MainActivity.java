@@ -837,23 +837,34 @@ public final class MainActivity extends Activity
            gate the surface promises. Through Build G the
            picker was text-only in effect, yet HTML (text/html)
            slipped through it ungated while the other three
-           were simply unpickable: the gate existed nowhere. */
+           were simply unpickable: the gate existed nowhere.
+           D-15 (found exercising Build H itself): the intent
+           must be type "*\/*" with the acceptable set carried
+           ENTIRELY in EXTRA_MIME_TYPES. A "text/*" primary
+           type PLUS extras made Android 15's DocumentsUI grey
+           out every plain-text file — the files matching only
+           the wildcard primary, i.e. the free tier's main add
+           path — while the extras' own types stayed enabled
+           (proven on the bench: both .txt fixtures disabled,
+           .html/.pdf enabled, same screen). With "*\/*" the
+           extras ARE the filter, text included. */
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         i.addCategory(Intent.CATEGORY_OPENABLE);
-        i.setType("text/*");
-        i.putExtra(Intent.EXTRA_MIME_TYPES, PAID_MIME_TYPES);
+        i.setType("*/*");
+        i.putExtra(Intent.EXTRA_MIME_TYPES, PICKABLE_MIME_TYPES);
         try {
             startActivityForResult(i, REQ_PICK);
         } catch (Exception e) {
             Intent fallback = new Intent(Intent.ACTION_GET_CONTENT);
-            fallback.setType("text/*");
-            fallback.putExtra(Intent.EXTRA_MIME_TYPES, PAID_MIME_TYPES);
+            fallback.setType("*/*");
+            fallback.putExtra(Intent.EXTRA_MIME_TYPES, PICKABLE_MIME_TYPES);
             fallback.addCategory(Intent.CATEGORY_OPENABLE);
             startActivityForResult(fallback, REQ_PICK);
         }
     }
 
-    private static final String[] PAID_MIME_TYPES = {
+    private static final String[] PICKABLE_MIME_TYPES = {
+            "text/*",
             "text/html",
             "application/xhtml+xml",
             "application/pdf",
