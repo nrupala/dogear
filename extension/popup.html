@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DogEar — Read Aloud</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <div class="brand">DogEar</div>
+    <div class="tag">Document in, place kept, resume anywhere.</div>
+  </header>
+
+  <div class="actions">
+    <button id="btn-read-page" type="button" class="primary">Read this page</button>
+    <button id="btn-read-selection" type="button">Read selection</button>
+    <div class="row">
+      <button id="btn-toggle" type="button">Pause / Resume</button>
+      <button id="btn-stop" type="button">Stop</button>
+    </div>
+  </div>
+
+  <p id="status" class="status" role="status">…</p>
+
+  <section class="meter">
+    <div class="meter-label">Free listening this month</div>
+    <div class="meter-bar"><span id="meter-fill"></span></div>
+    <div id="meter-text" class="meter-text">…</div>
+    <p class="hint">600 minutes free every month. The one-time unlock
+    (US$24.99) in the DogEar app removes the limit — your device's voices
+    are never sold; the charge is for heavy use of the app.</p>
+  </section>
+
+  <section class="voices">
+    <div class="meter-label">Your computer's voices</div>
+    <ul id="voice-list" class="voice-list"></ul>
+    <p class="hint">DogEar reads with a voice that lives on your device
+    (the reader-core rule: on-device voices first), so the text you read
+    stays on your machine. To change the voice, change your system's
+    default voice in your OS settings.</p>
+  </section>
+
+  <footer>
+    <span>DogEar by 2351485 ALBERTA INC. (AIMLDS)</span>
+    <a href="https://getdogear.app" target="_blank" rel="noopener">getdogear.app</a>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
