@@ -5,6 +5,46 @@ All notable changes to dogear are documented here, in
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-24
+
+Web 1.6.0 (certified worker sha256 83293d98c8f75550...) bundled via the
+committed routes-only bundle-manifest (sha-verified against the live,
+certified bytes at build time). Ships as a RELEASE CANDIDATE:
+graduation to final follows the owner's phone verdict + a clean soak.
+
+### Added
+- The app answers questions about itself by voice - what it is, what
+  the controls do, how Talk works, the plan (600 free minutes a month;
+  the one-time US$24.99 unlock) - composed from the product's live
+  state, so the speech cannot drift from the product.
+- Speech-completion watchdog: a stalled utterance is re-spoken from
+  the cut point; every job is accounted (given / confirmed /
+  recovered / lost) and a mismatch is a logged defect, never silent.
+- Failures speak their cause and remedy (microphone blocked, no
+  speech heard, pack missing, and twelve more classes); the bare
+  "listening failed" is gone, guarded by a census test.
+- Answers composed as units: lead, content, completion, next step.
+
+### Fixed
+- The transport wedge behind beta.5's failed press series: a speech
+  cancel secretly held full Stop authority. Cancel is now voice-only
+  by construction; the 25-cycle press series and the process-death
+  Continue-at-the-pin proof pass on this build.
+- Library rows were not tappable outside the small Open button
+  (caught by the fresh-eyes walk); the row opens, the button seeks.
+
+### Known limits
+- After a permission revoke (which kills the process) and a
+  relaunch, the player can rarely show "playing" while the page
+  sits idle; Stop then Play revives from the saved place. A named
+  soak item: fixed or re-accepted by name before "final".
+- Server-side Play purchase verification activates when the Play
+  Console credential is provisioned; until then entitlement is
+  held on the device.
+- Larger voice models (Small and up) remain capability-gated in
+  the shelf, with the reason shown.
+
+
 ## [1.1.0-beta.4] - 2026-10-22
 
 Web 1.4.0 (certified worker sha256 428daa2044e82cd1…) bundled via the
