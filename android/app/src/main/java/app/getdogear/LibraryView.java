@@ -2,7 +2,9 @@ package app.getdogear;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -35,6 +37,9 @@ public final class LibraryView extends LinearLayout {
         super(ctx);
         this.shell = shell;
         setOrientation(VERTICAL);
+        /* Depth (Build E): the Library sits on the app GROUND;
+           its documents stand on it as cards (below). */
+        setBackgroundColor(0xFFE9EFF6);
         int pad = dp(16);
 
         LinearLayout header = new LinearLayout(ctx);
@@ -49,6 +54,11 @@ public final class LibraryView extends LinearLayout {
         Button add = new Button(ctx);
         add.setText("Add document");
         add.setAllCaps(false);
+        /* The one loud action on this surface carries the
+           accent, like Play does on the bar. */
+        add.setTypeface(null, Typeface.BOLD);
+        add.setTextColor(0xFFFFFFFF);
+        add.setBackgroundTintList(ColorStateList.valueOf(0xFF175C4C));
         add.setOnClickListener(v -> shell.pickDocumentFile());
         header.addView(add);
         addView(header);
@@ -92,7 +102,20 @@ public final class LibraryView extends LinearLayout {
     private View rowFor(final DocumentStore.Doc doc) {
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(HORIZONTAL);
-        row.setPadding(0, dp(8), 0, dp(8));
+        row.setPadding(dp(14), dp(10), dp(10), dp(10));
+        /* Depth (Build E, owner doctrine 2026-10-24 23:38):
+           a document row is a CARD on the Library's ground —
+           white, rounded, elevated — an object on a shelf,
+           not a line in a flat list. */
+        GradientDrawable card = new GradientDrawable();
+        card.setColor(0xFFFFFFFF);
+        card.setCornerRadius(dp(12));
+        row.setBackground(card);
+        row.setElevation(dp(3));
+        LayoutParams rlp = new LayoutParams(LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT);
+        rlp.setMargins(0, 0, 0, dp(10));
+        row.setLayoutParams(rlp);
 
         LinearLayout main = new LinearLayout(getContext());
         main.setOrientation(VERTICAL);

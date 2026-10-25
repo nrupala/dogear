@@ -1,14 +1,9 @@
 package app.getdogear;
 
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.DialogInterface;
 import android.content.res.ColorStateList;
-import android.graphics.Color;
-import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -28,7 +23,11 @@ import org.json.JSONObject;
  * no state of its own — it renders PlayerCore snapshots. The eight
  * in-playback features the owner named, all live during speech:
  *   transport row: Pause/Resume · Stop · Talk · Continue
- *   marks row:     Save · Bookmark · Favorite · Tag · Note
+ *   marks (Build E, Seat B): ONE labelled "Marks" button opens
+ *   the Marks sheet, where the five mark acts live and every
+ *   saved mark is listed and findable (the structural fix for
+ *   the Build C walk's W-2/W-3 — the old five-button marks row
+ *   confirmed nothing and found nothing).
  */
 public final class NativeControlBar extends LinearLayout {
 
@@ -40,11 +39,7 @@ public final class NativeControlBar extends LinearLayout {
     private final Button btnStop;
     private final Button btnTalk;
     private final Button btnContinue;
-    private final Button btnSave;
-    private final Button btnBookmark;
-    private final Button btnFavorite;
-    private final Button btnTag;
-    private final Button btnNote;
+    private final Button btnMarks;
 
     private String playback = "none";
     private String voice = "idle";
@@ -53,10 +48,31 @@ public final class NativeControlBar extends LinearLayout {
     /* Redesign: the empty state's primary action ("Choose a
        document") navigates to the Library; the host wires it. */
     private Runnable chooseDocumentAction;
+    /* Build E: the Marks button opens the host's Marks sheet. */
+    private Runnable marksAction;
+    /* Build E (Seat B delta 4): the host computes time remaining
+       truthfully from chunk position + speech rate and pushes
+       the label; null means "not shown", never a guess. */
+    private String timeRemaining;
 
     public void setChooseDocumentAction(Runnable action) {
         chooseDocumentAction = action;
         render(core.snapshot());
+    }
+
+    public void setMarksAction(Runnable action) {
+        marksAction = action;
+    }
+
+    /** The marks count the host computed from the core's marks
+     *  (pin + bookmarks + tags + notes): the count on the button
+     *  is the standing findability signal W-3 demanded. */
+    public void setMarksCount(int count) {
+        btnMarks.setText(count > 0 ? "Marks (" + count + ")" : "Marks");
+    }
+
+    public void setTimeRemaining(String label) {
+        timeRemaining = label;
     }
 
     public NativeControlBar(Activity activity, PlayerCore core) {
@@ -100,17 +116,15 @@ public final class NativeControlBar extends LinearLayout {
         transport.addView(btnContinue);
         addView(transport);
 
+        /* Build E (Seat B delta 3): the five-button marks row
+           is gone. One labelled Marks button takes its row —
+           the acts and the saved marks live in the sheet it
+           opens (MarksSheet), where they confirm in place and
+           can be found again. */
         LinearLayout marks = row();
-        btnSave = button("Save place");
-        btnBookmark = button("Bookmark");
-        btnFavorite = button("\u2606 Favorite");
-        btnTag = button("Tag");
-        btnNote = button("Note");
-        marks.addView(btnSave);
-        marks.addView(btnBookmark);
-        marks.addView(btnFavorite);
-        marks.addView(btnTag);
-        marks.addView(btnNote);
+        btnMarks = button("Marks");
+        btnMarks.setTypeface(null, android.graphics.Typeface.BOLD);
+        marks.addView(btnMarks);
         addView(marks);
 
         btnPlayPause.setOnClickListener(new OnClickListener() {
@@ -144,20 +158,10 @@ public final class NativeControlBar extends LinearLayout {
         btnContinue.setOnClickListener(new OnClickListener() {
             @Override public void onClick(View v) { core.continueSaved(PlayerCore.Source.BAR); }
         });
-        btnSave.setOnClickListener(new OnClickListener() {
-            @Override public void onClick(View v) { core.savePlace(PlayerCore.Source.BAR); }
-        });
-        btnBookmark.setOnClickListener(new OnClickListener() {
-            @Override public void onClick(View v) { bookmarkDialog(); }
-        });
-        btnFavorite.setOnClickListener(new OnClickListener() {
-            @Override public void onClick(View v) { core.toggleFavorite(PlayerCore.Source.BAR); }
-        });
-        btnTag.setOnClickListener(new OnClickListener() {
-            @Override public void onClick(View v) { tagDialog(); }
-        });
-        btnNote.setOnClickListener(new OnClickListener() {
-            @Override public void onClick(View v) { noteDialog(); }
+        btnMarks.setOnClickListener(new OnClickListener() {
+            @Override public void onClick(View v) {
+                if (marksAction != null) marksAction.run();
+            }
         });
 
         render(core.snapshot());
@@ -235,6 +239,13 @@ public final class NativeControlBar extends LinearLayout {
         if (hasDoc && savedChunk >= 0) {
             line.append(" · place saved at part ").append(savedChunk + 1);
         }
+        /* Seat B delta 4 (Evie's steal): time remaining stands
+           on the status line beside the part count — but only
+           the label the host could compute truthfully; when it
+           cannot, nothing is appended (no guessed number). */
+        if (hasDoc && timeRemaining != null) {
+            line.append(" · ").append(timeRemaining);
+        }
         if ("listening".equals(voice)) line.append(" · listening\u2026");
         statusLine.setText(line.toString());
 
@@ -262,75 +273,10 @@ public final class NativeControlBar extends LinearLayout {
         }
 
         btnContinue.setEnabled(canContinue);
-        btnSave.setEnabled(hasDoc);
-        btnBookmark.setEnabled(hasDoc);
-        btnFavorite.setEnabled(hasDoc);
-        btnFavorite.setText(favorite ? "\u2605 Favorite" : "\u2606 Favorite");
-        /* The active favorite reads gold (finish pass); the
-           enabled text color is restored on the core state
-           list otherwise. */
-        if (favorite) btnFavorite.setTextColor(0xFFFFD166);
-        else btnFavorite.setTextColor(new ColorStateList(
-            new int[][] {
-                new int[] { android.R.attr.state_enabled },
-                new int[] {},
-            },
-            new int[] { 0xFFEAF3FE, 0xFF7E93AC }));
-        btnTag.setEnabled(hasDoc);
-        btnNote.setEnabled(hasDoc);
-    }
-
-    // ------------------------------------------------------------------
-    // Mark dialogs (the text-bearing features)
-    // ------------------------------------------------------------------
-
-    private void bookmarkDialog() {
-        final EditText input = new EditText(activity);
-        input.setHint("Label (optional)");
-        input.setTextColor(Color.BLACK);
-        new AlertDialog.Builder(activity)
-                .setTitle("Bookmark this place")
-                .setView(input)
-                .setPositiveButton("Save", new DialogInterface.OnClickListener() {
-                    @Override public void onClick(DialogInterface d, int w) {
-                        core.addBookmark(input.getText().toString(), PlayerCore.Source.BAR);
-                    }
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
-
-    private void tagDialog() {
-        final EditText input = new EditText(activity);
-        input.setHint("Tag name");
-        input.setTextColor(Color.BLACK);
-        new AlertDialog.Builder(activity)
-                .setTitle("Tag this document")
-                .setView(input)
-                .setPositiveButton("Add tag", new DialogInterface.OnClickListener() {
-                    @Override public void onClick(DialogInterface d, int w) {
-                        core.addTag(input.getText().toString(), PlayerCore.Source.BAR);
-                    }
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
-
-    private void noteDialog() {
-        final EditText input = new EditText(activity);
-        input.setHint("Your note, saved at this place in the reading");
-        input.setTextColor(Color.BLACK);
-        input.setMinLines(2);
-        input.setGravity(Gravity.TOP);
-        new AlertDialog.Builder(activity)
-                .setTitle("Note at this place")
-                .setView(input)
-                .setPositiveButton("Save note", new DialogInterface.OnClickListener() {
-                    @Override public void onClick(DialogInterface d, int w) {
-                        core.addNote(input.getText().toString(), PlayerCore.Source.BAR);
-                    }
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+        /* The Marks button needs the open document; its acts
+           live in the sheet. Favorite state no longer renders
+           here — it is an act and a fact inside the sheet and
+           in the Library row's star. */
+        btnMarks.setEnabled(hasDoc);
     }
 }

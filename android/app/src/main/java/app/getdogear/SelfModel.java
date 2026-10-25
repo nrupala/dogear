@@ -8,7 +8,8 @@ import java.util.regex.Pattern;
  * CONTENT is kept, per the brief's keep/rebuild ledger; the
  * surface references are re-truthed for the native app: the shelf
  * lives in Settings, the bar sits under the document in Listen,
- * marks are listed under the document text).
+ * a Now Listening strip stands over the Library, and marks live
+ * behind the Marks button, in the Marks sheet (Build E)).
  *
  * Routing discipline, unchanged from the source: match() fires
  * only on question-shaped utterances ABOUT the app. Document
@@ -134,16 +135,23 @@ public final class SelfModel {
     }
 
     private static String controls() {
-        return "The control bar under the document is built into "
-                + "the app, and every button on it works while I am "
-                + "speaking. Play and Pause start and hold the reading. "
-                + "Stop stops it and keeps your place. Continue picks up "
-                + "from your saved place. Save place pins where you are, "
-                + "so Continue returns there even if you read on. "
+        return "Listening is controlled in two places, and both "
+                + "work while I am speaking. Above the Library, the "
+                + "Now Listening strip shows what is open, which part "
+                + "you are on, and how much listening is left: its big "
+                + "button pauses and resumes, and its Talk button "
+                + "reaches me from anywhere. In the document itself, "
+                + "the control bar sits under the text: Play and Pause "
+                + "start and hold the reading, Stop stops it and keeps "
+                + "your place, and Continue picks up from your saved "
+                + "place. Below those, the Marks button opens the "
+                + "Marks sheet: Save place pins where you are, so "
+                + "Continue returns there even if you read on, and "
                 + "Bookmark, Favorite, Tag and Note each mark the part "
-                + "that is sounding when you press, and your marks are "
-                + "listed under the document. Talk is how you speak to "
-                + "me \u2014 ask me how Talk works, and I will explain it.";
+                + "that is sounding when you press. Every mark you "
+                + "save is listed in that same sheet \u2014 tap one, and "
+                + "I jump to its place. Talk is how you speak to me "
+                + "\u2014 ask me how Talk works, and I will explain it.";
     }
 
     private static String talk(Ctx ctx) {

@@ -72,6 +72,10 @@ public final class SettingsView extends ScrollView {
     public SettingsView(Context ctx, Shell shell) {
         super(ctx);
         this.shell = shell;
+        /* Depth (Build E): Settings sits on the same app
+           ground as the Library; its shelf rows stand as
+           cards (buildShelf). */
+        setBackgroundColor(0xFFE9EFF6);
         body = new LinearLayout(ctx);
         body.setOrientation(LinearLayout.VERTICAL);
         int pad = dp(16);
@@ -97,7 +101,21 @@ public final class SettingsView extends ScrollView {
         for (final Tier tier : TIERS) {
             LinearLayout row = new LinearLayout(getContext());
             row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setPadding(0, dp(6), 0, dp(6));
+            row.setPadding(dp(12), dp(8), dp(8), dp(8));
+            /* Depth (Build E): each model on the shelf is a
+               card on the ground, like a document in the
+               Library — the shelf is a shelf. */
+            android.graphics.drawable.GradientDrawable cardBg =
+                    new android.graphics.drawable.GradientDrawable();
+            cardBg.setColor(0xFFFFFFFF);
+            cardBg.setCornerRadius(dp(12));
+            row.setBackground(cardBg);
+            row.setElevation(dp(3));
+            LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            rlp.setMargins(0, 0, 0, dp(8));
+            row.setLayoutParams(rlp);
             TextView line = new TextView(getContext());
             line.setTextSize(14);
             line.setTextColor(0xFF10243E);
@@ -323,7 +341,25 @@ public final class SettingsView extends ScrollView {
             JSONObject st = ev.optJSONObject("status");
             if (st != null) {
                 String model = st.optString("modelId", "");
-                tierStates.put(model, st.optString("state", "absent"));
+                String incoming = st.optString("state", "absent");
+                /* D-4 (found exercising Build D; fixed Build E):
+                   the engine's truthful MID-FLIGHT answer is
+                   "partial"/"absent", and this handler used to
+                   overwrite the tier's local "downloading" claim
+                   with it — so an in-flight row fell back to
+                   "Not downloaded" (with a live Download button)
+                   on the next status event, while the download
+                   was still running. The local downloading claim
+                   now SURVIVES engine "partial"/"absent" events;
+                   only the engine saying "installed" (or the
+                   download event itself) may end the claim —
+                   completion converges exactly as Build D
+                   proved, and the mid-flight lie is impossible. */
+                String prev = tierStates.get(model);
+                if (!("downloading".equals(prev)
+                        && !"installed".equals(incoming))) {
+                    tierStates.put(model, incoming);
+                }
             }
             refreshShelf();
         } else if ("download".equals(kind)) {

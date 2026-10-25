@@ -20,6 +20,7 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.Toast;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
@@ -33,15 +34,26 @@ import java.util.Set;
 
 /**
  * DogEar, redesigned (2026-10-24 commission): a native app, not a
- * web page in a frame. One Activity, three areas on a bottom
- * navigation bar — Listen (usage), Library (program), Settings
- * (admin) — over ONE native state machine (PlayerCore), a native
- * document store, a native chunk feeder, and a function-only
- * engine host for the on-device Whisper pack. The Phase 0 rule
- * governs the whole shell: the transport surface owns its truth —
- * sessions are set by native code, the bar's states give reasons,
- * one machine is commanded directly, and behavior proof runs on
- * the shipped bytes.
+ * web page in a frame. Over ONE native state machine (PlayerCore),
+ * a native document store, a native chunk feeder, and a
+ * function-only engine host for the on-device Whisper pack.
+ *
+ * Build E — Seat B ("the player is a place", owner-endorsed
+ * 2026-10-24 23:37 MDT): TWO doors on the bottom navigation —
+ * Library (program, and home: the start destination, always)
+ * and Settings (admin) — and the player is a standing thing,
+ * not a door: a Now Listening strip floats above the navigation
+ * whenever a document is open or a saved place exists, and
+ * tapping it opens the full Listen view (usage) over the
+ * current door. Marks live behind the bar's one Marks button,
+ * in the Marks sheet. Depth is layered throughout (owner
+ * doctrine 2026-10-24 23:38): ground, cards, a floating strip,
+ * sheets that rise over the page.
+ *
+ * The Phase 0 rule governs the whole shell: the transport
+ * surface owns its truth — sessions are set by native code, the
+ * bar's states give reasons, one machine is commanded directly,
+ * and behavior proof runs on the shipped bytes.
  *
  * The previous WebView shell is retired in this build: the web
  * app remains the WEB endpoint (endpoint-native law — it keeps
@@ -75,11 +87,30 @@ public final class MainActivity extends Activity
     private NativeControlBar controlBar;
     private LibraryView libraryView;
     private SettingsView settingsView;
-    private Button navListen, navLibrary, navSettings;
-    private int area = AREA_LISTEN;
+    private NowListeningStrip strip;
+    private MarksSheet marksSheet;
+    private Button navLibrary, navSettings;
+    private int area = AREA_LIBRARY;
+    /* Build E: Listen is a view OVER a door, not a door itself.
+       listenOpen says it is up; areaBeforeListen is the door
+       Back returns to. */
+    private boolean listenOpen;
+    private int areaBeforeListen = AREA_LIBRARY;
     private String openDocId;
     private int licenceReqSeq = 7000;
     private boolean startAreaDecided;
+    /* Time-remaining support: the open/place document's chunk
+       texts, cached per document (documents are immutable once
+       added, so the cache cannot go stale for a live id). */
+    private List<String> remainingChunksCache;
+    private String remainingChunksFor;
+
+    /* Nominal English TTS pace at 1.0x: about 900 characters a
+       minute. Time remaining is an estimate built from it and
+       the user's own rate setting, and is worded as one
+       ("about N min left"); when the inputs are missing the
+       label is null and nothing is shown — never a guess. */
+    private static final double CHARS_PER_SECOND_AT_1X = 15.0;
 
     private final IntSpeaker speaker = new IntSpeaker() {
         @Override
@@ -152,6 +183,7 @@ public final class MainActivity extends Activity
     @Override
     protected void onDestroy() {
         SpeechService.setEventSink(null);
+        if (marksSheet != null) marksSheet.dismiss();
         if (feeder != null) feeder.halt();
         if (announcer != null) announcer.cancel();
         if (engineHost != null) engineHost.destroy();
@@ -164,8 +196,10 @@ public final class MainActivity extends Activity
 
     @Override
     public void onBackPressed() {
-        if (area != AREA_LISTEN) {
-            showArea(AREA_LISTEN);
+        if (marksSheet != null && marksSheet.isShowing()) {
+            marksSheet.dismiss();
+        } else if (listenOpen) {
+            showArea(areaBeforeListen);
         } else {
             super.onBackPressed();
         }
@@ -178,7 +212,10 @@ public final class MainActivity extends Activity
     private void buildLayout() {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFFF4F8FD);
+        /* Depth (Build E): the root paints the app GROUND —
+           every surface (Library cards, the floating strip,
+           the paper of the document) sits ON it. */
+        root.setBackgroundColor(0xFFE9EFF6);
 
         content = new FrameLayout(this);
         root.addView(content, new LinearLayout.LayoutParams(
@@ -186,16 +223,20 @@ public final class MainActivity extends Activity
 
         listenArea = new LinearLayout(this);
         listenArea.setOrientation(LinearLayout.VERTICAL);
+        listenArea.setVisibility(View.GONE);
         listenView = new ListenView(this, this);
         listenArea.addView(listenView, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
         controlBar = new NativeControlBar(this, core);
         controlBar.setChooseDocumentAction(() -> showArea(AREA_LIBRARY));
+        marksSheet = new MarksSheet(this, core, chunk -> steerToChunk(chunk));
+        controlBar.setMarksAction(() -> {
+            if (openDocId != null) marksSheet.show(openDocId);
+        });
         listenArea.addView(controlBar);
         content.addView(listenArea);
 
         libraryView = new LibraryView(this, this);
-        libraryView.setVisibility(View.GONE);
         content.addView(libraryView);
 
         settingsView = new SettingsView(this, this);
@@ -209,13 +250,28 @@ public final class MainActivity extends Activity
         hostView.setAlpha(0f);
         content.addView(hostView, new FrameLayout.LayoutParams(1, 1));
 
+        /* The Now Listening strip (Seat B): between the content
+           and the navigation, floating on the ground. ABSENT
+           until a document is open or a place exists. */
+        strip = new NowListeningStrip(this);
+        strip.setVisibility(View.GONE);
+        strip.setBodyAction(this::onStripBodyTap);
+        strip.setPlayPauseAction(this::onStripPlayPause);
+        strip.setTalkAction(this::onStripTalk);
+        root.addView(strip);
+
+        /* Seat B navigation: TWO doors. Settings stays a door
+           (owner latitude offered a menu/page instead; the door
+           was chosen — a labelled, never-moving door is the
+           findable pattern for the least-able user, and the
+           Moon+ teardown is the standing warning against admin
+           hidden inside content. Recorded in the Build E
+           exercise record.) */
         LinearLayout nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setBackgroundColor(0xFF10243E);
-        navListen = navButton("Listen", AREA_LISTEN);
         navLibrary = navButton("Library", AREA_LIBRARY);
         navSettings = navButton("Settings", AREA_SETTINGS);
-        nav.addView(navListen);
         nav.addView(navLibrary);
         nav.addView(navSettings);
         root.addView(nav);
@@ -263,9 +319,13 @@ public final class MainActivity extends Activity
     }
 
     private void renderNav() {
-        Button[] all = {navListen, navLibrary, navSettings};
+        /* While the Listen view is up, the highlighted door is
+           the one it was opened from — Listen is a view over a
+           door, not a third door. */
+        Button[] all = {navLibrary, navSettings};
+        int[] areas = {AREA_LIBRARY, AREA_SETTINGS};
         for (int i = 0; i < all.length; i++) {
-            boolean active = i == area;
+            boolean active = areas[i] == area;
             all[i].setTextColor(active ? 0xFFFFFFFF : 0xFF9FB8D8);
             all[i].setTypeface(null, active
                     ? android.graphics.Typeface.BOLD
@@ -275,8 +335,21 @@ public final class MainActivity extends Activity
 
     @Override
     public void showArea(int target) {
+        if (target == AREA_LISTEN) {
+            if (!listenOpen) {
+                areaBeforeListen = area;
+                listenOpen = true;
+            }
+            listenArea.setVisibility(View.VISIBLE);
+            libraryView.setVisibility(View.GONE);
+            settingsView.setVisibility(View.GONE);
+            renderStrip(core.snapshot());
+            renderNav();
+            return;
+        }
         area = target;
-        listenArea.setVisibility(target == AREA_LISTEN ? View.VISIBLE : View.GONE);
+        listenOpen = false;
+        listenArea.setVisibility(View.GONE);
         libraryView.setVisibility(target == AREA_LIBRARY ? View.VISIBLE : View.GONE);
         settingsView.setVisibility(target == AREA_SETTINGS ? View.VISIBLE : View.GONE);
         if (target == AREA_LIBRARY) libraryView.refresh();
@@ -284,15 +357,164 @@ public final class MainActivity extends Activity
             settingsView.refresh();
             probeVoices();
         }
+        renderStrip(core.snapshot());
         renderNav();
     }
 
     private void decideStartArea() {
         if (startAreaDecided) return;
         startAreaDecided = true;
-        boolean hasPlace = marks != null && marks.hasAnyPosition();
-        showArea(hasPlace || !documents.isEmpty()
-                ? AREA_LISTEN : AREA_LIBRARY);
+        /* Seat B: the Library is home — the start destination
+           is Library ALWAYS (first run, return, everywhere).
+           A place or an open document summons the strip, not
+           a different front door. */
+        showArea(AREA_LIBRARY);
+    }
+
+    // ----------------------------------------------------------
+    // The Now Listening strip — presence, facts, and actions
+    // ----------------------------------------------------------
+
+    /** Render the strip from the core's truth. Presence law:
+     *  a document open OR a saved place exists — otherwise the
+     *  strip is absent entirely. While the Listen view is up
+     *  the strip stands down (the full bar is the transport
+     *  there; two transports would be two truths). */
+    private void renderStrip(JSONObject s) {
+        if (strip == null || s == null) return;
+        NowListeningStrip.Info info = null;
+        String docId = s.isNull("docId")
+                ? null : s.optString("docId", null);
+        if (docId != null) {
+            info = new NowListeningStrip.Info();
+            info.sessionOpen = true;
+            info.title = s.optString("title", "");
+            info.part = s.optInt("chunk", -1) + 1;
+            info.parts = s.optInt("chunks", 0);
+            info.playback = s.optString("playback", "none");
+            info.voice = s.optString("voice", "idle");
+            info.remaining = remainingLabel(docId, s.optInt("chunk", -1));
+        } else if (marks != null && marks.hasAnyPosition()) {
+            JSONObject target = marks.continueTarget(null);
+            if (target != null) {
+                String tid = target.optString("docId", "");
+                DocumentStore.Doc d = documents.find(tid);
+                if (d != null) {
+                    info = new NowListeningStrip.Info();
+                    info.sessionOpen = false;
+                    info.title = target.optString("title", d.title);
+                    info.part = target.optInt("chunk", 0) + 1;
+                    info.parts = target.optInt("chunks", 0);
+                    info.pinned = target.optBoolean("pinned", false);
+                    info.playback = "none";
+                    info.voice = "idle";
+                    info.remaining = remainingLabel(tid,
+                            target.optInt("chunk", 0));
+                }
+            }
+        }
+        if (info == null || listenOpen) {
+            strip.setVisibility(View.GONE);
+            return;
+        }
+        strip.setVisibility(View.VISIBLE);
+        strip.render(info);
+    }
+
+    /** "about N min left" from chunk position and the speech
+     *  rate — or null, when it cannot be computed truthfully
+     *  (no chunk texts, position unknown, nothing left). The
+     *  strip and the bar show nothing rather than a guess. */
+    private String remainingLabel(String docId, int fromChunk) {
+        if (docId == null || fromChunk < 0) return null;
+        if (!docId.equals(remainingChunksFor)) {
+            remainingChunksCache = documents.chunksOf(docId);
+            remainingChunksFor = docId;
+        }
+        if (remainingChunksCache == null
+                || fromChunk >= remainingChunksCache.size()) return null;
+        long chars = 0;
+        for (int i = fromChunk; i < remainingChunksCache.size(); i++) {
+            chars += remainingChunksCache.get(i).length();
+        }
+        if (chars <= 0) return null;
+        double seconds = chars
+                / (CHARS_PER_SECOND_AT_1X * Math.max(0.2f, speechRate()));
+        if (seconds < 45) return "under a minute left";
+        long mins = Math.round(seconds / 60.0);
+        if (mins < 60) return "about " + mins + " min left";
+        long h = mins / 60;
+        long m = mins % 60;
+        if (m == 0) return "about " + h + (h == 1 ? " hr left" : " hrs left");
+        return "about " + h + " hr " + m + " min left";
+    }
+
+    /** Marks count for the bar's Marks button: the pin plus
+     *  every bookmark, tag and note — exactly the sheet's list. */
+    private int marksCount(String docId) {
+        if (docId == null) return 0;
+        JSONObject m = core.marksFor(docId);
+        int n = 0;
+        if (!m.isNull("saved")) n++;
+        JSONArray b = m.optJSONArray("bookmarks");
+        if (b != null) n += b.length();
+        JSONArray t = m.optJSONArray("tags");
+        if (t != null) n += t.length();
+        JSONArray nt = m.optJSONArray("notes");
+        if (nt != null) n += nt.length();
+        return n;
+    }
+
+    private void onStripBodyTap() {
+        JSONObject s = core.snapshot();
+        if (!s.isNull("docId")) {
+            showArea(AREA_LISTEN);
+            return;
+        }
+        JSONObject target = marks.continueTarget(null);
+        if (target != null) {
+            /* Open the place's document AT its place, paused —
+               the Listen view is the strip opened up. Play is
+               the strip's own button, one tap away as before. */
+            openInternal(target.optString("docId", ""),
+                    target.optInt("chunk", 0), false);
+        }
+    }
+
+    private void onStripPlayPause() {
+        JSONObject s = core.snapshot();
+        if (!s.isNull("docId")) {
+            String pb = s.optString("playback", "none");
+            if ("playing".equals(pb)) core.pause(PlayerCore.Source.BAR);
+            else if ("paused".equals(pb)) core.resume(PlayerCore.Source.BAR);
+            else core.play(PlayerCore.Source.BAR);
+        } else {
+            /* The strip's button in the place-only state IS
+               Continue: the core's verb, resuming at the pin. */
+            core.continueSaved(PlayerCore.Source.BAR);
+        }
+    }
+
+    private void onStripTalk() {
+        JSONObject s = core.snapshot();
+        if ("listening".equals(s.optString("voice", "idle"))) {
+            core.talkStop();
+            return;
+        }
+        if (!s.isNull("docId")) {
+            core.talkStart(PlayerCore.Source.BAR);
+            return;
+        }
+        /* Talk needs a document open for its questions to be
+           about something: open the place's document first
+           (paused, at its place), then begin capture — one
+           press, the ask has its context. */
+        JSONObject target = marks.continueTarget(null);
+        if (target != null) {
+            openInternal(target.optString("docId", ""),
+                    target.optInt("chunk", 0), false);
+            main.post(() -> core.talkStart(PlayerCore.Source.BAR));
+        }
     }
 
     // ----------------------------------------------------------
@@ -341,6 +563,7 @@ public final class MainActivity extends Activity
 
     @Override
     public void removeDocument(String docId) {
+        if (marksSheet != null) marksSheet.dismiss();
         boolean wasOpen = docId != null && docId.equals(openDocId);
         if (wasOpen) {
             feeder.halt();
@@ -547,9 +770,14 @@ public final class MainActivity extends Activity
         @Override
         public void onSnapshot(JSONObject snapshot) {
             diag.snapshot(snapshot, System.currentTimeMillis());
-            controlBar.render(snapshot);
             String doc = snapshot.isNull("docId")
                     ? null : snapshot.optString("docId", null);
+            /* Build E: the bar's pushed facts (time remaining,
+               marks count) land BEFORE its render reads them. */
+            controlBar.setTimeRemaining(doc == null ? null
+                    : remainingLabel(doc, snapshot.optInt("chunk", -1)));
+            controlBar.setMarksCount(doc == null ? 0 : marksCount(doc));
+            controlBar.render(snapshot);
             if (doc != null && !doc.equals(openDocId)) {
                 openDocId = doc;
                 DocumentStore.Doc d = documents.find(doc);
@@ -563,6 +791,7 @@ public final class MainActivity extends Activity
                 listenView.renderEmpty();
             }
             listenView.renderState(snapshot);
+            renderStrip(snapshot);
         }
 
         @Override
@@ -579,8 +808,19 @@ public final class MainActivity extends Activity
                 int chunk = event.optInt("chunk", 0);
                 if (!docId.isEmpty()) openInternal(docId, chunk, true);
             } else if ("marks".equals(t)) {
-                if (openDocId != null) listenView.renderMarks(openDocId);
-                if (area == AREA_LIBRARY) libraryView.refresh();
+                /* Build E: marks changed — the bar's count, the
+                   sheet (if it is up), and the Library's rows
+                   all re-render from the core's truth. The
+                   document view no longer lists marks (Seat B:
+                   the sheet is their one home). */
+                if (openDocId != null) {
+                    controlBar.setMarksCount(marksCount(openDocId));
+                }
+                if (marksSheet != null && marksSheet.isShowing()) {
+                    marksSheet.refresh();
+                }
+                if (!listenOpen && area == AREA_LIBRARY) libraryView.refresh();
+                renderStrip(core.snapshot());
             } else if ("control".equals(t)) {
                 // The core's control channel rides page events:
                 // {t:"control", action:"play"|"pause"|...}.
