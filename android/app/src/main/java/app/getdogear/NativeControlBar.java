@@ -223,6 +223,18 @@ public final class NativeControlBar extends LinearLayout {
         if (hasDoc && chunks > 0 && chunk >= 0) {
             line.append(" · part ").append(chunk + 1).append(" of ").append(chunks);
         }
+        /* W-2 (Build D, from the L13 fresh-eyes walk): "Save
+           place" confirmed nothing a user could SEE — its only
+           feedback was a transient toast, so a fresh user could
+           not tell the act had worked. The pin is now standing
+           state on the status line, at the point of action,
+           rendered from the core's own snapshot (savedChunk is
+           the open document's pinned place): press Save and this
+           line gains "place saved at part N" and keeps it. */
+        int savedChunk = s.optInt("savedChunk", -1);
+        if (hasDoc && savedChunk >= 0) {
+            line.append(" · place saved at part ").append(savedChunk + 1);
+        }
         if ("listening".equals(voice)) line.append(" · listening\u2026");
         statusLine.setText(line.toString());
 

@@ -110,9 +110,16 @@ public final class LibraryView extends LinearLayout {
         main.setOnClickListener(v -> shell.openDocument(doc.id));
         row.addView(main, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
 
+        /* W-4 (Build D, from the L13 fresh-eyes walk): removal
+           hid behind an unlabeled ⋮ glyph — a first-time user
+           had to guess that the icon was the path. The button
+           now carries a visible word, and its accessible name
+           says whose options they are. The menu it opens keeps
+           its labeled items ("Open", "Remove…"). */
         Button menu = new Button(getContext());
-        menu.setText("\u22EE");
+        menu.setText("Options");
         menu.setAllCaps(false);
+        menu.setContentDescription("Options for " + doc.title);
         menu.setOnClickListener(v -> rowMenu(doc));
         row.addView(menu);
         return row;
@@ -131,6 +138,16 @@ public final class LibraryView extends LinearLayout {
             if (saved != null) sb.append(" \u00B7 saved");
         }
         if (shell.marks().isFavorite(doc.id)) sb.append(" \u00B7 \u2605");
+        /* W-3 (Build D): a document's bookmarks are countable
+           from the Library too — the marks are findable from
+           both areas, not only stored. */
+        org.json.JSONArray bms = shell.core().marksFor(doc.id)
+                .optJSONArray("bookmarks");
+        int nb = bms == null ? 0 : bms.length();
+        if (nb > 0) {
+            sb.append(" \u00B7 ").append(nb)
+                    .append(nb == 1 ? " bookmark" : " bookmarks");
+        }
         return sb.toString();
     }
 

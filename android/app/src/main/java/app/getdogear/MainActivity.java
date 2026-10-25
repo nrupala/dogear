@@ -221,7 +221,34 @@ public final class MainActivity extends Activity
         root.addView(nav);
 
         setContentView(root);
+        applySystemBarInsets(root);
         renderNav();
+    }
+
+    /* W-1 (Build D, from the L13 fresh-eyes walk): the app draws
+       edge-to-edge on Android 15 (targetSdk 36), and with no
+       inset handling the Library header — "Add document"
+       included — was laid out UNDER the translucent status bar,
+       its top half untappable. The root now takes the system-bar
+       insets as padding, so every area that shares this chrome
+       (Listen, Library, Settings, the control bar, the nav bar)
+       sits fully clear of the status strip and the gesture bar,
+       and every control is tappable across its whole area. The
+       root's own background paints the padded strip, so the
+       header never sits in the system strip again. Gated to
+       API 35+, where edge-to-edge is enforced; older versions
+       fit system windows by default and must not be padded
+       twice. */
+    private void applySystemBarInsets(final View root) {
+        if (Build.VERSION.SDK_INT < 35) return;
+        getWindow().setDecorFitsSystemWindows(false);
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            android.graphics.Insets bars =
+                    insets.getInsets(android.view.WindowInsets.Type.systemBars());
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            return insets;
+        });
+        root.requestApplyInsets();
     }
 
     private Button navButton(String label, final int target) {

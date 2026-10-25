@@ -64,6 +64,7 @@ public final class SettingsView extends ScrollView {
     private final Map<String, Button> tierButtons = new HashMap<String, Button>();
     private final Map<String, String> tierStates = new HashMap<String, String>();
     private TextView licenceState;
+    private EditText keyInput;
     private TextView voiceState;
     private int reqSeq = 1000;
     private String selectedModel = "";
@@ -175,15 +176,23 @@ public final class SettingsView extends ScrollView {
         body.addView(sectionTitle("Plan & licence"));
         licenceState = bodyText("");
         body.addView(licenceState);
-        final EditText keyIn = new EditText(getContext());
-        keyIn.setHint("Paste a licence key");
-        body.addView(keyIn);
+        keyInput = new EditText(getContext());
+        keyInput.setHint("Paste a licence key");
+        body.addView(keyInput);
         Button verify = new Button(getContext());
         verify.setText("Save & verify key");
         verify.setAllCaps(false);
         verify.setOnClickListener(v -> {
-            String token = keyIn.getText().toString().trim();
+            String token = keyInput.getText().toString().trim();
             if (token.isEmpty()) return;
+            /* Masked display (below) is not a key: never store
+               the mask as if it were one. */
+            if (token.indexOf('\u2022') >= 0) {
+                renderLicenceState("That key is already saved on "
+                        + "this device. To use a different key, "
+                        + "clear the field and paste the new one.");
+                return;
+            }
             shell.licence().store(token);
             renderLicenceState("Key saved \u2014 verifying its signature\u2026");
             EngineHost host = shell.engineHost();
@@ -256,6 +265,22 @@ public final class SettingsView extends ScrollView {
                 action.setText("\u2026");
                 action.setEnabled(false);
                 if (host != null) host.status(reqSeq++, tier.id);
+            } else if ("downloading".equals(state)) {
+                /* Shelf-truth fix (Build D, from the finishing
+                   run's observation): a tier in flight used to
+                   fall into the else branch below and render as
+                   "Not downloaded" on ANY re-render during the
+                   download — the shelf's surface truth lagged
+                   until the area was left and re-entered. In
+                   flight now renders as in flight, and every
+                   render pass re-queries the engine's own status
+                   so a stale local claim reconciles with the
+                   engine's standing instead of waiting for a
+                   navigation. */
+                sb.append(" \u00B7 Downloading\u2026");
+                action.setText("Downloading\u2026");
+                action.setEnabled(false);
+                if (host != null) host.status(reqSeq++, tier.id);
             } else if ("installed".equals(state)) {
                 sb.append(" \u00B7 Installed");
                 if (tier.id.equals(selectedModel)) sb.append(" \u00B7 In use");
@@ -312,6 +337,13 @@ public final class SettingsView extends ScrollView {
                 if (!reason.isEmpty()) note(reason);
             }
             refreshShelf();
+            /* The shelf's final word on a download is the
+               engine's own status, re-queried — not the event
+               payload alone (Build D shelf-truth fix). */
+            EngineHost host = shell.engineHost();
+            if (host != null && !model.isEmpty()) {
+                host.status(reqSeq++, model);
+            }
         } else if ("remove".equals(kind)) {
             tierStates.remove(ev.optString("modelId", ""));
             refreshShelf();
@@ -360,6 +392,24 @@ public final class SettingsView extends ScrollView {
             if (transientNote != null) sb.append(" ").append(transientNote);
         }
         licenceState.setText(sb.toString());
+        /* Masking (Build D, from the finishing run's
+           observation): once a key is VERIFIED, the field no
+           longer shows it in clear — the verified state above
+           (Unlocked · holder · plan) is the visible truth, and
+           the field keeps only a short suffix so the owner can
+           tell WHICH key is saved. The stored token itself is
+           untouched; only the display is masked. An unverified
+           key is never masked — the owner may still be working
+           with it. */
+        if (licence.isUnlocked() && keyInput != null) {
+            String shown = keyInput.getText().toString();
+            if (!shown.isEmpty() && shown.indexOf('\u2022') < 0) {
+                String suffix = shown.length() > 4
+                        ? shown.substring(shown.length() - 4) : shown;
+                keyInput.setText("\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+                        + suffix);
+            }
+        }
     }
 
     private void note(String msg) {
