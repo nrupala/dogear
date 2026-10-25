@@ -53,12 +53,23 @@ window.speechSynthesis = {
   getVoices() {
     return [{ name: 'Fixture Voice', lang: 'en-US', localService: true }];
   },
+  // Deterministic: an utterance never ends on its own. The test ends it
+  // explicitly via finishUtterance() — an auto-ending stub races the
+  // message round-trips and makes toggle assertions timing-dependent
+  // (the first CI failure: the whole short fixture "finished" before
+  // the pause toggle landed).
   speak(u) {
     spoken.push(u.text);
     this.speaking = true;
-    setTimeout(() => { if (u.onend) u.onend(); }, 0);
+    this._current = u;
   },
-  cancel() { this.speaking = false; },
+  finishUtterance() {
+    const u = this._current;
+    this._current = null;
+    this.speaking = false;
+    if (u && u.onend) u.onend();
+  },
+  cancel() { this.speaking = false; this._current = null; },
   pause() { this.paused = true; },
   resume() { this.paused = false; },
 };
@@ -111,13 +122,15 @@ check(!!bar, 'DogEar bar mounted on the page');
 check(bar && bar.textContent.includes('2351485 ALBERTA INC.'),
   'bar carries the entity line');
 check(spoken.length > 0, 'engine spoke the first chunk');
+check(spoken[0].includes('Fixture Article'),
+  'speech starts at the article heading');
+window.speechSynthesis.finishUtterance();
 check(spoken.join(' ').includes('DogEar reads pages aloud'),
-  'speech starts at the article, not the page chrome');
+  'speech continues into the article body, not the page chrome');
 check(window.document.querySelectorAll('.rc-sent').length > 3,
   'sentences wrapped for highlighting');
 resp = await command({ dogear: true, cmd: 'state' });
-check(resp && (resp.state === 'playing' || resp.progress >= 0),
-  'state reports the live reader');
+check(resp && resp.state === 'playing', 'state reports the live reader');
 
 // ---- toggle: pause then resume ----------------------------------------------
 resp = await command({ dogear: true, cmd: 'toggle' });
