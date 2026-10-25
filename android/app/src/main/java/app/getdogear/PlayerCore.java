@@ -151,6 +151,32 @@ public final class PlayerCore {
         }});
     }
 
+    /** Session end for a document that is being REMOVED. The
+     *  purge runs INSIDE the posted runnable, behind every save
+     *  already queued (stop() persists the place \u2014 "keep my
+     *  place" \u2014 and utteranceSpoke saves on every chunk): a
+     *  host that purges from its own thread races those queued
+     *  saves, and the save resurrects the removed document's
+     *  place (EXERCISE D-3, 2026-10-25: removing the open,
+     *  playing document left its position in the marks store
+     *  after the confirm dialog had promised it gone). The FIFO
+     *  poster makes the ordering exact: every save queued before
+     *  the forget lands first, the purge lands last. */
+    public void sessionEndedForget(final String forgetDocId) {
+        poster.post(new Runnable() { @Override public void run() {
+            String ended = forgetDocId != null ? forgetDocId : docId;
+            docId = null;
+            title = "";
+            chunk = -1;
+            chunks = 0;
+            if (playback == Playback.PLAYING || playback == Playback.PAUSED) {
+                playback = Playback.STOPPED;
+            }
+            if (ended != null) store.deleteDocument(ended);
+            emitSnapshot();
+        }});
+    }
+
     public void sessionTitle(final String newTitle) {
         poster.post(new Runnable() { @Override public void run() {
             if (newTitle != null && !newTitle.isEmpty()) title = newTitle;
