@@ -1,0 +1,94 @@
+/* DogEar extension bar — the shell skin over the pinned reader-core
+   controls. Echoes the fleet embed's Ether skin (deep indigo,
+   aquamarine accent). Written defensively: the bar must look right on
+   any host page, so every rule is scoped to #dogear-ext-bar and sets
+   the properties it depends on instead of inheriting the page's. */
+#dogear-ext-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2147483646;
+  background: #081322;
+  color: #e9f2f1;
+  border-bottom: 2px solid rgba(111, 242, 220, 0.55);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  padding: 8px 14px 10px;
+  box-sizing: border-box;
+}
+#dogear-ext-bar * { box-sizing: border-box; }
+#dogear-ext-bar .dge-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+#dogear-ext-bar .dge-brand {
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  color: #6ff2dc;
+}
+#dogear-ext-bar .dge-tag { color: rgba(190, 225, 220, 0.6); font-size: 12px; }
+#dogear-ext-bar .dge-close {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid rgba(111, 242, 220, 0.4);
+  color: #6ff2dc;
+  border-radius: 999px;
+  width: 26px;
+  height: 26px;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+#dogear-ext-bar .dge-close:hover { filter: brightness(1.2); }
+#dogear-ext-bar .dge-note {
+  margin-top: 6px;
+  background: rgba(111, 242, 220, 0.1);
+  border: 1px solid rgba(111, 242, 220, 0.35);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+#dogear-ext-bar .dge-mount .rc-row { margin: 6px 0 2px; }
+#dogear-ext-bar .dge-mount .rc-play {
+  background: #6ff2dc;
+  color: #042a28;
+  border-radius: 999px;
+}
+#dogear-ext-bar .dge-mount .rc-stop {
+  color: #6ff2dc;
+  border-color: rgba(111, 242, 220, 0.4);
+  border-radius: 999px;
+}
+#dogear-ext-bar .dge-mount .rc-rate-label { color: #6ff2dc; }
+#dogear-ext-bar .dge-mount .rc-rate {
+  background: #081322;
+  color: #e9f2f1;
+  border-color: rgba(111, 242, 220, 0.4);
+}
+#dogear-ext-bar .dge-mount .rc-progress { background: rgba(111, 242, 220, 0.15); }
+#dogear-ext-bar .dge-mount .rc-fill { background: #6ff2dc; }
+#dogear-ext-bar .dge-sel {
+  margin-top: 6px;
+  max-height: 30vh;
+  overflow: auto;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(111, 242, 220, 0.25);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+#dogear-ext-bar .dge-sel p { margin: 0 0 8px; color: #e9f2f1; }
+#dogear-ext-bar .dge-foot {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: 11px;
+  color: rgba(190, 225, 220, 0.55);
+}
+#dogear-ext-bar .dge-meter { color: rgba(190, 225, 220, 0.8); }
