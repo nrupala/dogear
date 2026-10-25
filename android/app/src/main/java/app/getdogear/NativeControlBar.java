@@ -59,19 +59,32 @@ public final class NativeControlBar extends LinearLayout {
         int pad = dp(10);
         setPadding(pad, dp(6), pad, dp(8));
 
+        /* 1.1.0 finish pass (presentation only — no behavior
+           change anywhere in this file's edits): a hairline
+           separates the bar from the page above it. */
+        View divider = new View(activity);
+        divider.setBackgroundColor(0xFF16324F);
+        addView(divider, new LayoutParams(LayoutParams.MATCH_PARENT, dp(1)));
+
         statusLine = new TextView(activity);
         statusLine.setTextColor(0xFFBFD9F7);
-        statusLine.setTextSize(12.5f);
+        statusLine.setTextSize(13f);
         statusLine.setSingleLine(true);
         statusLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
         statusLine.setText("DogEar — open a document to listen");
-        addView(statusLine, new LayoutParams(LayoutParams.MATCH_PARENT, dp(22)));
+        addView(statusLine, new LayoutParams(LayoutParams.MATCH_PARENT, dp(24)));
 
         LinearLayout transport = row();
         btnPlayPause = button("\u25B6 Play");
         btnStop = button("\u23F9 Stop");
         btnTalk = button("\uD83C\uDFA4 Talk");
         btnContinue = button("\u23F5 Continue");
+        /* One obvious primary action (placement law 2): Play
+           carries the accent; Talk, the voice primary, carries
+           weight. Everything else stays quiet. */
+        btnPlayPause.setBackgroundTintList(ColorStateList.valueOf(0xFF175C4C));
+        btnPlayPause.setTypeface(null, android.graphics.Typeface.BOLD);
+        btnTalk.setTypeface(null, android.graphics.Typeface.BOLD);
         transport.addView(btnPlayPause);
         transport.addView(btnStop);
         transport.addView(btnTalk);
@@ -136,8 +149,8 @@ public final class NativeControlBar extends LinearLayout {
     private LinearLayout row() {
         LinearLayout r = new LinearLayout(activity);
         r.setOrientation(HORIZONTAL);
-        LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, dp(46));
-        lp.topMargin = dp(4);
+        LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, dp(48));
+        lp.topMargin = dp(6);
         r.setLayoutParams(lp);
         return r;
     }
@@ -146,7 +159,15 @@ public final class NativeControlBar extends LinearLayout {
         Button b = new Button(activity);
         b.setText(label);
         b.setTextSize(13f);
-        b.setTextColor(0xFFEAF3FE);
+        /* A disabled button must LOOK disabled (finish pass):
+           a single text color made dead buttons identical to
+           live ones. State-list colors now carry the state. */
+        b.setTextColor(new ColorStateList(
+            new int[][] {
+                new int[] { android.R.attr.state_enabled },
+                new int[] {},
+            },
+            new int[] { 0xFFEAF3FE, 0xFF7E93AC }));
         b.setAllCaps(false);
         b.setBackgroundTintList(ColorStateList.valueOf(0xFF16324F));
         LayoutParams lp = new LayoutParams(0, LayoutParams.MATCH_PARENT, 1f);
@@ -210,6 +231,16 @@ public final class NativeControlBar extends LinearLayout {
         btnBookmark.setEnabled(hasDoc);
         btnFavorite.setEnabled(hasDoc);
         btnFavorite.setText(favorite ? "\u2605 Favorite" : "\u2606 Favorite");
+        /* The active favorite reads gold (finish pass); the
+           enabled text color is restored on the core state
+           list otherwise. */
+        if (favorite) btnFavorite.setTextColor(0xFFFFD166);
+        else btnFavorite.setTextColor(new ColorStateList(
+            new int[][] {
+                new int[] { android.R.attr.state_enabled },
+                new int[] {},
+            },
+            new int[] { 0xFFEAF3FE, 0xFF7E93AC }));
         btnTag.setEnabled(hasDoc);
         btnNote.setEnabled(hasDoc);
     }
