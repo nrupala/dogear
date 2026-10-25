@@ -85,6 +85,13 @@ public final class HtmlText {
         s = CELL.matcher(s).replaceAll(" ");
         s = ANY_TAG.matcher(s).replaceAll("");
         s = decodeEntities(s);
+        // A non-breaking space in extracted prose is a space:
+        // the text exists to be read (aloud, eventually), and
+        // U+00A0 only survives to break word-wrap and search
+        // in the surfaces that show it. The decoder above
+        // stays semantically pure (nbsp decodes to U+00A0);
+        // the discipline here owns what counts as a space.
+        s = s.replace('\u00A0', ' ');
         // Discipline: per-line space collapse, then paragraph
         // breaks normalize to exactly one blank line.
         String[] lines = s.split("\n", -1);
