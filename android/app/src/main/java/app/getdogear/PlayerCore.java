@@ -128,7 +128,7 @@ public final class PlayerCore {
             // claimed playing over silence, forever. Playback truth
             // restarts with the session.
             playback = Playback.STOPPED;
-            voice = VoiceState.IDLE;
+            voice = Voice.IDLE;
             JSONObject saved = store.positionFor(docId);
             if (saved != null) {
                 if (chunk < 0) chunk = saved.optInt("chunk", -1);
