@@ -6,6 +6,51 @@
 <title>dogear — document in, place kept</title>
 <meta name="description" content="dogear is a read-aloud reader that remembers where you stopped. The web app is live and free — no account, and your documents stay on your device. Browser extensions are planned.">
 <meta name="theme-color" content="#000000">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://getdogear.app/#org",
+      "name": "2351485 ALBERTA INC.",
+      "alternateName": "AIMLDS",
+      "url": "https://aimlds.org/",
+      "founder": {
+        "@type": "Person",
+        "name": "Nrupal Akolkar",
+        "url": "https://nrupalakolkar.com/"
+      }
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://getdogear.app/#app",
+      "name": "dogear",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Web, Android",
+      "url": "https://getdogear.app/",
+      "description": "A read-aloud reader that remembers where you stopped. No account, no tracking \u2014 your documents stay on your device.",
+      "publisher": {
+        "@id": "https://getdogear.app/#org"
+      },
+      "offers": [
+        {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD",
+          "name": "Free \u2014 600 listening minutes a month"
+        },
+        {
+          "@type": "Offer",
+          "price": "24.99",
+          "priceCurrency": "USD",
+          "name": "One-time unlock, voice pack included"
+        }
+      ]
+    }
+  ]
+}
+</script>
 <script>
 /* apply the saved skin before first paint — matrix is home, ether is the deep-listening mode */
 (function(){try{var t=localStorage.getItem("dg-theme");if(t==="ether"||t==="matrix"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}})();
@@ -301,7 +346,7 @@
   </section>
   </div>
 
-  <footer>Owned by <a href="https://nrupalakolkar.com">Nrupal Akolkar</a> &middot; Built with <a href="https://muse.ai/join">Muse by Meta</a> &mdash; join Muse, then redeem code <strong>101EEK</strong> in Settings within 48 hours of joining and we both earn tokens.</footer>
+  <footer><p style="margin:0 0 .5rem">© 2026 2351485 ALBERTA INC. (AIMLDS) · Calgary, Alberta, Canada · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a> · <a href="https://aimlds.org/contact">Contact</a></p>Owned by <a href="https://nrupalakolkar.com">Nrupal Akolkar</a> &middot; Built with <a href="https://muse.ai/join">Muse by Meta</a> &mdash; join Muse, then redeem code <strong>101EEK</strong> in Settings within 48 hours of joining and we both earn tokens.</footer>
 
 <script>
 /* skin toggle: matrix ⇄ ether, remembered per device */
