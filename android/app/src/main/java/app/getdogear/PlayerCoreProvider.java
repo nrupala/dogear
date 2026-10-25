@@ -43,6 +43,9 @@ public final class PlayerCoreProvider {
                     new VoiceCapture(app),
                     new PlayerCore.Poster() {
                         @Override public void post(Runnable r) { main.post(r); }
+                        @Override public void postDelayed(Runnable r, long delayMs) {
+                            main.postDelayed(r, delayMs);
+                        }
                     },
                     new PlayerCore.Clock() {
                         @Override public long nowMs() { return System.currentTimeMillis(); }

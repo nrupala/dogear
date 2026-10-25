@@ -83,7 +83,14 @@ public final class PlayerCore {
         void check(Callback cb);
     }
 
-    public interface Poster { void post(Runnable r); }
+    public interface Poster {
+        void post(Runnable r);
+        /** Schedule on the same queue after a delay (Build G:
+         *  the Talk gate's watchdog rides on this — the core
+         *  never waits on an outside answer without its own
+         *  clock running). */
+        void postDelayed(Runnable r, long delayMs);
+    }
     public interface Clock { long nowMs(); }
 
     /** Surfaces that reflect the machine: the activity (native bar
@@ -108,6 +115,12 @@ public final class PlayerCore {
      *  talkStop while the gate was still deciding) is ignored. */
     private int talkSeq = 0;
     private boolean talkGatePending = false;
+    /** Build G (D-5): the core's own backstop for a gate
+     *  verdict that never arrives — deliberately longer than
+     *  the host gate's own 2.5 s probe fallback, so a healthy
+     *  host resolves first and this fires only when the host
+     *  path itself has failed. */
+    static final long TALK_GATE_TIMEOUT_MS = 4000;
 
     private Playback playback = Playback.NONE;
     private Voice voice = Voice.IDLE;
@@ -468,7 +481,27 @@ public final class PlayerCore {
             }
             talkGatePending = true;
             emitSnapshot();
-            gate.check(new TalkGate.Callback() {
+            /* Build G (defect D-5): the press must never wait
+               on the gate without the core's own clock running.
+               On the Build F bench a Talk press was observed
+               silenced and never resolved — no verdict, no
+               capture, no spoken reason, for as long as the
+               process was watched (the host-side probe and its
+               own 2.5 s fallback both failed to land that one
+               time, under heavy host load; four faithful
+               re-drives resolved correctly). Whatever the host
+               cause, the class is closed here: the watchdog is
+               armed BEFORE the gate is asked, a throwing gate
+               resolves as a proceed, and a silent gate resolves
+               as a proceed when the watchdog fires — the press
+               falls back to the post-capture path, whose
+               classes all speak honestly, instead of hanging. */
+            poster.postDelayed(new Runnable() { @Override public void run() {
+                if (seq != talkSeq || !talkGatePending) return;
+                talkGatePending = false;
+                beginCapture();
+            }}, TALK_GATE_TIMEOUT_MS);
+            TalkGate.Callback verdict = new TalkGate.Callback() {
                 @Override public void proceed() {
                     poster.post(new Runnable() { @Override public void run() {
                         if (seq != talkSeq || !talkGatePending) return;
@@ -488,7 +521,15 @@ public final class PlayerCore {
                         emitSnapshot();
                     }});
                 }
-            });
+            };
+            try {
+                gate.check(verdict);
+            } catch (Throwable gateFailure) {
+                // A gate that throws has given no verdict; the
+                // press proceeds (the post-capture path speaks
+                // its own classes honestly).
+                verdict.proceed();
+            }
         }});
     }
 

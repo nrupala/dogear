@@ -78,6 +78,24 @@ public class PlayerCoreTest {
     private MarksStore store;
     private RecordingListener listener;
     private PlayerCore core;
+    private TestPoster poster;
+
+    /** Immediate poster with a manually-fired delayed queue —
+     *  Build G's gate watchdog arms through postDelayed, and
+     *  tests decide when (and whether) it fires. */
+    static final class TestPoster implements PlayerCore.Poster {
+        final java.util.List<Runnable> delayed = new ArrayList<Runnable>();
+        @Override public void post(Runnable r) { r.run(); }
+        @Override public void postDelayed(Runnable r, long delayMs) {
+            delayed.add(r);
+        }
+        void fireDelayed() {
+            java.util.List<Runnable> due =
+                    new java.util.ArrayList<Runnable>(delayed);
+            delayed.clear();
+            for (Runnable r : due) r.run();
+        }
+    }
 
     @Before
     public void setUp() {
@@ -87,10 +105,8 @@ public class PlayerCoreTest {
         storage = new MemoryStorage();
         store = new MarksStore(storage);
         listener = new RecordingListener();
-        core = new PlayerCore(store, capture,
-                new PlayerCore.Poster() {
-                    @Override public void post(Runnable r) { r.run(); }
-                },
+        poster = new TestPoster();
+        core = new PlayerCore(store, capture, poster,
                 new PlayerCore.Clock() {
                     @Override public long nowMs() { return 1700000000000L; }
                 });
@@ -129,6 +145,9 @@ public class PlayerCoreTest {
         PlayerCore q = new PlayerCore(store, capture,
                 new PlayerCore.Poster() {
                     @Override public void post(Runnable r) { queue.add(r); }
+                    @Override public void postDelayed(Runnable r, long delayMs) {
+                        queue.add(r);
+                    }
                 },
                 new PlayerCore.Clock() {
                     @Override public long nowMs() { return 1700000000000L; }
@@ -247,14 +266,56 @@ public class PlayerCoreTest {
     static final class FakeGate implements PlayerCore.TalkGate {
         String blockClass;   // non-null: blocked with this class
         boolean hold;        // hold the verdict until released
+        boolean throwInCheck;
         Callback held;
         int checks;
         @Override public void check(Callback cb) {
             checks++;
+            if (throwInCheck) throw new RuntimeException("gate blew up");
             if (hold) { held = cb; return; }
             if (blockClass != null) cb.blocked(blockClass);
             else cb.proceed();
         }
+    }
+
+    @Test
+    public void talkGateThatNeverAnswersFallsBackToCapture() {
+        // Build G (defect D-5): on the Build F bench a Talk
+        // press was observed silenced and never resolved — the
+        // gate's verdict never landed and the press hung with
+        // playback parked. The core now carries its own
+        // watchdog: an unanswered gate resolves as a proceed
+        // (the post-capture path speaks its classes honestly)
+        // instead of stranding the press.
+        FakeGate gate = new FakeGate();
+        gate.hold = true; // never released
+        core.setTalkGate(gate);
+        speakChunk(2, 30); // PLAYING
+        core.talkStart(PlayerCore.Source.BAR);
+        assertEquals(1, gate.checks);
+        assertEquals(0, capture.starts);
+        assertEquals(PlayerCore.Voice.IDLE, core.voice());
+        poster.fireDelayed(); // the watchdog fires
+        assertEquals(1, capture.starts);
+        assertEquals(PlayerCore.Voice.LISTENING, core.voice());
+        // A verdict arriving after the watchdog is ignored.
+        gate.held.proceed();
+        assertEquals(1, capture.starts);
+    }
+
+    @Test
+    public void talkGateThatThrowsFallsBackToCapture() {
+        // Build G (D-5): a gate that throws while being asked
+        // has given no verdict; the press must proceed, not
+        // die inside the gate call.
+        FakeGate gate = new FakeGate();
+        gate.throwInCheck = true;
+        core.setTalkGate(gate);
+        speakChunk(2, 30);
+        core.talkStart(PlayerCore.Source.BAR);
+        assertEquals(1, gate.checks);
+        assertEquals(1, capture.starts);
+        assertEquals(PlayerCore.Voice.LISTENING, core.voice());
     }
 
     @Test

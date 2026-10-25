@@ -179,10 +179,22 @@ public final class MainActivity extends Activity
             }
             pendingTalkGate = cb;
             final int req = gateReqSeq++;
-            engineHost.status(req, null);
+            try {
+                engineHost.status(req, null);
+            } catch (Throwable probeFailure) {
+                /* Build G (D-5): a probe that throws has given
+                   no verdict — proceed, and say so in the
+                   diagnostics (the core's own watchdog is the
+                   backstop if even this fallback fails). */
+                pendingTalkGate = null;
+                diagEvent("talk-gate", "verdict", "probe-threw-proceed");
+                cb.proceed();
+                return;
+            }
             main.postDelayed(() -> {
                 if (pendingTalkGate == cb) {
                     pendingTalkGate = null;
+                    diagEvent("talk-gate", "verdict", "host-timeout-proceed");
                     cb.proceed();
                 }
             }, 2500);
@@ -1008,6 +1020,8 @@ public final class MainActivity extends Activity
                     && "installed".equals(st.optString("state", ""));
             PlayerCore.TalkGate.Callback cb = pendingTalkGate;
             pendingTalkGate = null;
+            diagEvent("talk-gate", "verdict",
+                    installed ? "proceed-installed" : "blocked-pack-absent");
             if (installed) cb.proceed();
             else cb.blocked(FailureSpeech.PACK_ABSENT);
         }
