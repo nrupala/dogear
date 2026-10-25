@@ -315,8 +315,12 @@ public final class AskEngine implements EngineHost.Listener {
     private void fail(String failureClass) {
         final boolean resume = pendingResume;
         pendingResume = false;
-        announcer.say("failure", FailureSpeech.lineFor(failureClass),
-                rate, lang, new Runnable() {
+        /* Build H: the failure is announced BY CLASS, so the
+           ledger records which class spoke and which line it
+           spoke (the L14(a) attribution seam) — through Build G
+           every failure landed as one undifferentiated job and
+           no class could be proven from the product's records. */
+        announcer.sayFailure(failureClass, rate, lang, new Runnable() {
                     @Override public void run() {
                         if (resume && announcementResumeHook != null) {
                             announcementResumeHook.run();

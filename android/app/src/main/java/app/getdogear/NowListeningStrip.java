@@ -135,9 +135,16 @@ public final class NowListeningStrip extends LinearLayout {
             meta.append("Part ").append(info.part)
                     .append(" of ").append(info.parts);
         }
-        if (info.pinned) {
+        /* Build H (D-7): the place-only state's two places
+           carry their two words here too — the deliberate pin
+           is the "Saved place"; the automatic live position is
+           "your place". Through Build G the strip said "saved
+           place" for the pin only and nothing at all for the
+           position, while the deck said "place saved" for
+           both; the vocabulary now agrees on every surface. */
+        if (!info.sessionOpen) {
             if (meta.length() > 0) meta.append(" · ");
-            meta.append("saved place");
+            meta.append(info.pinned ? "Saved place" : "your place");
         }
         if ("playing".equals(info.playback)) {
             if (meta.length() > 0) meta.append(" · ");

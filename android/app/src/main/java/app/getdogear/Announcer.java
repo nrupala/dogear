@@ -29,6 +29,18 @@ public final class Announcer {
         void onAnnouncementDefect(String what);
     }
 
+    /** The spoken word, mirrored (Build H, D-8): every piece
+     *  is reported as it is handed to the voice, and the job's
+     *  end is reported with it — so a surface (the Listen deck)
+     *  can carry in TEXT exactly what Talk is saying while it
+     *  says it. Through Build G an announcement existed only
+     *  as sound: on a muted phone, or to a user who cannot
+     *  hear it, a Talk episode was twenty silent seconds. */
+    public interface PieceSink {
+        void onPiece(String tag, String text);
+        void onJobFinished(String tag);
+    }
+
     private static final long START_WINDOW_MS = 4000;
     private static final long GUARD_TICK_MS = 1000;
     private static final int ID_BASE = 1000000;
@@ -37,6 +49,15 @@ public final class Announcer {
     private final Handler handler;
     private final Diagnostics diag;
     private final DefectSink defects;
+    private PieceSink pieceSink;
+    /* Build H (L14(a) re-spec): a failure job's CLASS and the
+       exact line it announced, carried into the ledger event.
+       Through Build G every failure wrote one undifferentiated
+       job="failure" — the product's own records could not say
+       WHICH failure had spoken, so the leg that grades the
+       permission class could not be graded at all. */
+    private String jobClass;
+    private String jobLine;
 
     private String[] pieces;
     private float rate = 1.0f;
@@ -65,6 +86,10 @@ public final class Announcer {
         this.defects = defects;
     }
 
+    public void setPieceSink(PieceSink sink) {
+        pieceSink = sink;
+    }
+
     public synchronized boolean busy() {
         return running;
     }
@@ -77,8 +102,19 @@ public final class Announcer {
     public synchronized void announce(String tag, String[] jobPieces,
                                       float speechRate, String speechLang,
                                       Runnable complete) {
+        announceClassed(tag, jobPieces, speechRate, speechLang,
+                complete, null, null);
+    }
+
+    private synchronized void announceClassed(String tag, String[] jobPieces,
+                                              float speechRate, String speechLang,
+                                              Runnable complete,
+                                              String failureClass,
+                                              String failureLine) {
         cancelLocked();
         jobSeq++;
+        jobClass = failureClass;
+        jobLine = failureLine;
         jobTag = tag == null ? "" : tag;
         pieces = jobPieces;
         rate = speechRate;
@@ -105,6 +141,18 @@ public final class Announcer {
         announce(tag, new String[]{line}, speechRate, speechLang, complete);
     }
 
+    /** A failure, spoken by class (Build H): the line comes
+     *  from the FailureSpeech census by class, and the class
+     *  + the line's identity ride into the announce-ledger
+     *  event — the product's own record of WHICH failure
+     *  spoke and WHAT it said (the L14(a) evidence seam). */
+    public void sayFailure(String failureClass, float speechRate,
+                           String speechLang, Runnable complete) {
+        String line = FailureSpeech.lineFor(failureClass);
+        announceClassed("failure", new String[]{line}, speechRate,
+                speechLang, complete, failureClass, line);
+    }
+
     public synchronized void cancel() {
         cancelLocked();
     }
@@ -113,6 +161,8 @@ public final class Announcer {
         running = false;
         pieces = null;
         onComplete = null;
+        jobClass = null;
+        jobLine = null;
         handler.removeCallbacks(guard);
     }
 
@@ -171,6 +221,9 @@ public final class Announcer {
         spokeCurrent = false;
         given++;
         deadlineMs = System.currentTimeMillis() + START_WINDOW_MS;
+        if (pieceSink != null) {
+            pieceSink.onPiece(jobTag, pieces[index]);
+        }
         try {
             speaker.speak(currentId(), pieces[index], rate, lang);
         } catch (Exception ignored) {
@@ -199,9 +252,19 @@ public final class Announcer {
                 d.put("confirmed", confirmed);
                 d.put("recovered", recovered);
                 d.put("lost", lost);
+                /* Build H: failure attribution — the class and
+                   the announced line's identity, on failure jobs
+                   only (answers carry neither). */
+                if (jobClass != null) d.put("class", jobClass);
+                if (jobLine != null) d.put("line", jobLine);
                 diag.event("announce-ledger", d, System.currentTimeMillis());
             } catch (Exception ignored) {}
         }
+        if (pieceSink != null) {
+            pieceSink.onJobFinished(jobTag);
+        }
+        jobClass = null;
+        jobLine = null;
         Runnable done = onComplete;
         onComplete = null;
         pieces = null;

@@ -88,6 +88,22 @@ public final class SelfModel {
         return out;
     }
 
+    /** The ONE held-model explanation (Build H, QUALITY
+     *  C4): through Build G the shelf gave one reason for the
+     *  held models ("more memory than the in-app engine can
+     *  safely use") and the limits answer gave another ("until
+     *  a stronger engine lands, because the phone would shut
+     *  me down") — one fact, two explanations, and a reader
+     *  comparing them got different causes. The shelf's reason
+     *  is the canonical one; every surface that explains the
+     *  hold — shelf rows, the chip dialog, the spoken answers,
+     *  Help & About (which renders these answers) — composes
+     *  from this clause and no other. */
+    public static final String HELD_CLAUSE =
+            "held back on purpose: they need more memory than the "
+                    + "in-app engine can safely use, so they are not "
+                    + "offered here";
+
     private SelfModel() {}
 
     static String norm(String text) {
@@ -183,11 +199,8 @@ public final class SelfModel {
                 + "downloads once, together with the shared runtime, and "
                 + "then listens entirely on this device. Tiny and Base "
                 + "run in the app today, and Base is the recommended "
-                + "starting point. Small, Medium and Large are not "
-                + "offered yet: they need more memory than the in-app "
-                + "engine can safely use, and the phone would shut "
-                + "DogEar down while loading them. They return when the "
-                + "stronger engine lands.";
+                + "starting point. Small, Medium and Large are "
+                + HELD_CLAUSE + ".";
     }
 
     private static String plan(Ctx ctx) {
@@ -216,9 +229,8 @@ public final class SelfModel {
                 + "only listen when you press Talk. I do not compose "
                 + "answers: about a document I can only quote it, and "
                 + "about myself I can only tell you what is built in. "
-                + "The three largest voice models are held back until a "
-                + "stronger engine lands, because the phone would shut "
-                + "me down loading them. And my reading voice is your "
+                + "The three largest voice models are "
+                + HELD_CLAUSE + ". And my reading voice is your "
                 + "device\u2019s own voice \u2014 if this device has no usable "
                 + "voice, I will say so on screen instead of pretending "
                 + "to speak.";

@@ -3,9 +3,14 @@ package app.getdogear;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.graphics.Typeface;
+import android.speech.tts.Voice;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -169,38 +174,148 @@ public final class SettingsView extends ScrollView {
         body.addView(rate);
     }
 
-    private List<String> voiceNames;
+    /* Build H (D-14): a voice's PRESENTATION is separate from
+       its identity. The identity is the engine's raw name —
+       "en-us-x-sfg-local" — and it is what persists and what
+       the speech service is told. But through Build G the raw
+       code WAS the label: the chooser listed engine codes and
+       the Settings line read "Voice: en-US-language", which
+       tells a person nothing (QUALITY C8). A voice now
+       presents as its language in words, on-device or online,
+       and its distinguishing code ("SFG") — "English (United
+       States) · on device · SFG" — with the raw name one layer
+       down, as the chooser row's second line. */
+    static final class VoiceInfo {
+        final String name;    // raw engine name (the identity)
+        final String label;   // human-readable (the presentation)
+
+        VoiceInfo(String name, String label) {
+            this.name = name;
+            this.label = label;
+        }
+    }
+
+    static VoiceInfo voiceInfo(Voice v) {
+        String name = v.getName();
+        String language = null;
+        try {
+            java.util.Locale loc = v.getLocale();
+            if (loc != null) language = loc.getDisplayName(java.util.Locale.ENGLISH);
+        } catch (Exception ignored) {}
+        return new VoiceInfo(name, voiceLabel(name, language));
+    }
+
+    /** The label, composed from whatever is known: the
+     *  locale's display name when a Voice object provided it,
+     *  else the name's own leading locale segments. */
+    static String voiceLabel(String rawName, String languageDisplay) {
+        if (rawName == null || rawName.isEmpty()) return "device default";
+        String lang = languageDisplay;
+        if (lang == null || lang.isEmpty()) {
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("^([a-zA-Z]{2,3})[-_]([a-zA-Z]{2})")
+                    .matcher(rawName);
+            if (m.find()) {
+                try {
+                    lang = new java.util.Locale(m.group(1), m.group(2))
+                            .getDisplayName(java.util.Locale.ENGLISH);
+                } catch (Exception ignored) {}
+            }
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append(lang != null && !lang.isEmpty() ? lang : rawName);
+        if (rawName.contains("-network")) sb.append(" \u00B7 online");
+        else if (rawName.contains("-local")) sb.append(" \u00B7 on device");
+        java.util.regex.Matcher code = java.util.regex.Pattern
+                .compile("-x-([a-zA-Z0-9]+)").matcher(rawName);
+        if (code.find()) {
+            sb.append(" \u00B7 ").append(code.group(1).toUpperCase(java.util.Locale.US));
+        }
+        return sb.toString();
+    }
+
+    private List<VoiceInfo> voiceInfos;
     private String currentVoice = "";
 
-    public void setVoices(List<String> names, String current) {
-        voiceNames = names;
+    public void setVoices(List<VoiceInfo> infos, String current) {
+        voiceInfos = infos;
         currentVoice = current == null ? "" : current;
         renderVoiceState();
     }
 
+    private String labelForCurrentVoice() {
+        if (currentVoice.isEmpty()) return "device default";
+        if (voiceInfos != null) {
+            for (VoiceInfo info : voiceInfos) {
+                if (info.name.equals(currentVoice)) return info.label;
+            }
+        }
+        return voiceLabel(currentVoice, null);
+    }
+
     private void renderVoiceState() {
         if (voiceState == null) return;
-        voiceState.setText("Voice: "
-                + (currentVoice.isEmpty() ? "device default" : currentVoice)
+        voiceState.setText("Voice: " + labelForCurrentVoice()
                 + " \u00B7 Speed: "
                 + String.format(java.util.Locale.US, "%.2f\u00D7", shell.speechRate()));
     }
 
     private void voiceDialog() {
-        if (voiceNames == null || voiceNames.isEmpty()) {
+        if (voiceInfos == null || voiceInfos.isEmpty()) {
             note("No voices were found on this device yet \u2014 the "
                     + "speech service may still be starting. Try again "
                     + "in a moment.");
             return;
         }
-        final String[] names = voiceNames.toArray(new String[0]);
-        new AlertDialog.Builder(getContext())
-                .setTitle("Reading voice")
-                .setItems(names, (d, which) -> {
-                    shell.setSpeechVoice(names[which]);
-                    currentVoice = names[which];
-                    renderVoiceState();
-                })
+        /* Two lines per voice (D-14): the human label is the
+           primary line; the raw engine name stands beneath it,
+           smaller and dimmer — one layer down, never the label.
+           The current voice is marked in words. */
+        final List<VoiceInfo> infos = voiceInfos;
+        ListView list = new ListView(getContext());
+        list.setAdapter(new BaseAdapter() {
+            @Override public int getCount() { return infos.size(); }
+            @Override public Object getItem(int i) { return infos.get(i); }
+            @Override public long getItemId(int i) { return i; }
+            @Override public View getView(int i, View convert, ViewGroup parent) {
+                LinearLayout row;
+                TextView primary, secondary;
+                if (convert instanceof LinearLayout) {
+                    row = (LinearLayout) convert;
+                    primary = (TextView) row.getChildAt(0);
+                    secondary = (TextView) row.getChildAt(1);
+                } else {
+                    row = new LinearLayout(getContext());
+                    row.setOrientation(LinearLayout.VERTICAL);
+                    row.setPadding(dp(20), dp(10), dp(20), dp(10));
+                    primary = new TextView(getContext());
+                    primary.setTextSize(15);
+                    primary.setTextColor(0xFF10243E);
+                    secondary = new TextView(getContext());
+                    secondary.setTextSize(12);
+                    secondary.setTextColor(0xFF5A6B7F);
+                    row.addView(primary);
+                    row.addView(secondary);
+                }
+                VoiceInfo info = infos.get(i);
+                primary.setText(info.label + (info.name.equals(currentVoice)
+                        ? " \u00B7 in use" : ""));
+                secondary.setText(info.name);
+                return row;
+            }
+        });
+        final AlertDialog[] holder = new AlertDialog[1];
+        list.setOnItemClickListener((parent, view, which, id) -> {
+            VoiceInfo info = infos.get(which);
+            shell.setSpeechVoice(info.name);
+            currentVoice = info.name;
+            renderVoiceState();
+            if (holder[0] != null) holder[0].dismiss();
+        });
+        holder[0] = new AlertDialog.Builder(getContext())
+                .setTitle("Choose a voice")
+                .setView(list)
+                .setNegativeButton("Cancel", null)
                 .show();
     }
 
@@ -222,6 +337,22 @@ public final class SettingsView extends ScrollView {
         body.addView(licenceState);
         keyInput = new EditText(getContext());
         keyInput.setHint("Paste a licence key");
+        /* Build H (QUALITY baseline B5): the key field's hint
+           rendered in the theme's faintest grey — the one field
+           a paying customer must find and fill was the hardest
+           thing on the page to see. It now stands as a field:
+           white face, a visible edge, dark text, and a hint in
+           the app's readable mid-grey. */
+        keyInput.setTextColor(0xFF10243E);
+        keyInput.setHintTextColor(0xFF5A6B7F);
+        keyInput.setTextSize(14);
+        keyInput.setPadding(dp(12), dp(10), dp(12), dp(10));
+        android.graphics.drawable.GradientDrawable keyBg =
+                new android.graphics.drawable.GradientDrawable();
+        keyBg.setColor(0xFFFFFFFF);
+        keyBg.setCornerRadius(dp(8));
+        keyBg.setStroke(dp(1), 0xFF9FB8D8);
+        keyInput.setBackground(keyBg);
         body.addView(keyInput);
         Button verify = new Button(getContext());
         verify.setText("Save & verify key");

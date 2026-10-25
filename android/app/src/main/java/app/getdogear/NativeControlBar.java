@@ -34,12 +34,27 @@ public final class NativeControlBar extends LinearLayout {
     private final Activity activity;
     private final PlayerCore core;
 
+    private final TextView titleLine;
     private final TextView statusLine;
+    private final TextView talkLine;
+    private final LinearLayout continueRow;
     private final Button btnPlayPause;
     private final Button btnStop;
     private final Button btnTalk;
     private final Button btnContinue;
     private final Button btnMarks;
+
+    /* Build H (D-8): the Talk episode's text mirror — the
+       piece the Announcer is speaking right now, and, for a
+       failure, the line that stays standing after it has
+       spoken (the reason remains readable until the next
+       episode or another document). Fed by the host from the
+       Announcer's piece sink; rendered under the state texts
+       (gate/listening/processing), which outrank it. */
+    private String spokenPiece;
+    private String stickyFailure;
+    private String stickyDocId;
+    private boolean announcementLive;
 
     private String playback = "none";
     private String voice = "idle";
@@ -112,6 +127,25 @@ public final class NativeControlBar extends LinearLayout {
         divider.setBackgroundColor(0xFF16324F);
         addView(divider, new LayoutParams(LayoutParams.MATCH_PARENT, dp(1)));
 
+        /* Build H (D-13): the title has its OWN line now. On
+           Build G the title was the first segment of the status
+           line, and on an untitled document the ~90-character
+           excerpt the app uses as a title consumed the whole
+           two-line budget — the status facts, time-remaining
+           first among them, were ellipsized off and never
+           reached the glass at all (QUALITY C7). The title
+           truncates to one line with an ellipsis; the status
+           line below carries facts only, and always in full. */
+        titleLine = new TextView(activity);
+        titleLine.setTextColor(0xFFFFFFFF);
+        titleLine.setTextSize(14f);
+        titleLine.setTypeface(null, android.graphics.Typeface.BOLD);
+        titleLine.setSingleLine(true);
+        titleLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        titleLine.setText("DogEar");
+        addView(titleLine, new LayoutParams(LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT));
+
         statusLine = new TextView(activity);
         statusLine.setTextColor(0xFFBFD9F7);
         statusLine.setTextSize(13f);
@@ -124,22 +158,36 @@ public final class NativeControlBar extends LinearLayout {
         statusLine.setSingleLine(false);
         statusLine.setMaxLines(2);
         statusLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        statusLine.setText("DogEar — open a document to listen");
+        statusLine.setText("Open a document to listen");
         LayoutParams slp = new LayoutParams(LayoutParams.MATCH_PARENT,
                 LayoutParams.WRAP_CONTENT);
+        slp.topMargin = dp(2);
         statusLine.setMinHeight(dp(24));
         addView(statusLine, slp);
+
+        /* Build H (D-8): Talk's visible state line. What Talk
+           is doing — checking, listening, working — and what
+           it is SAYING (the Announcer's current piece, mirrored
+           by the host) stand here in text for the episode's
+           whole window; a failure's reason stays standing
+           afterwards. Absent when Talk is idle and silent:
+           no placeholder, no dead text. */
+        talkLine = new TextView(activity);
+        talkLine.setTextColor(0xFFFFE1B0);
+        talkLine.setTextSize(13f);
+        talkLine.setSingleLine(false);
+        talkLine.setMaxLines(3);
+        talkLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        talkLine.setVisibility(View.GONE);
+        LayoutParams tlp = new LayoutParams(LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT);
+        tlp.topMargin = dp(2);
+        addView(talkLine, tlp);
 
         LinearLayout transport = row();
         btnPlayPause = button("\u25B6 Play");
         btnStop = button("\u23F9 Stop");
         btnTalk = button("\uD83C\uDFA4 Talk");
-        /* Build F (Q-1): Continue's old glyph (U+23F5) does not
-           exist in the device font and rendered as a missing-
-           glyph box on a standing primary control. It now
-           carries U+25B6 — the same play triangle as Play and
-           Resume, proven to render on-device. */
-        btnContinue = button("\u25B6 Continue");
         /* One obvious primary action (placement law 2): Play
            carries the accent; Talk, the voice primary, carries
            weight. Everything else stays quiet. */
@@ -149,8 +197,21 @@ public final class NativeControlBar extends LinearLayout {
         transport.addView(btnPlayPause);
         transport.addView(btnStop);
         transport.addView(btnTalk);
-        transport.addView(btnContinue);
         addView(transport);
+
+        /* Build H (D-7): Continue has its own full-width row,
+           and it EXISTS only when it means something the
+           transport toggle does not — a saved place that
+           differs from where the reading stands — labelled
+           with its destination. On Build G it stood beside
+           Resume in every state with the same glyph and
+           nothing to tell them apart (both seats stumbled on
+           it). Its glyph remains U+25B6 (Build F, Q-1). */
+        continueRow = row();
+        btnContinue = button("\u25B6 Continue");
+        continueRow.addView(btnContinue);
+        continueRow.setVisibility(View.GONE);
+        addView(continueRow);
 
         /* Build E (Seat B delta 3): the five-button marks row
            is gone. One labelled Marks button takes its row —
@@ -251,38 +312,79 @@ public final class NativeControlBar extends LinearLayout {
     // Rendering (PlayerCore snapshots only — the bar owns no state)
     // ------------------------------------------------------------------
 
+    /** The Announcer's piece sink, wired by the host (Build
+     *  H, D-8): as each piece is handed to the voice, the deck
+     *  shows it in text; a failure's line becomes the standing
+     *  reason when its job ends. */
+    public void onSpokenPiece(String tag, String text, String docId) {
+        announcementLive = true;
+        spokenPiece = text;
+        if ("failure".equals(tag)) {
+            stickyFailure = text;
+            stickyDocId = docId;
+        }
+        render(core.snapshot());
+    }
+
+    public void onSpokenJobFinished(String tag) {
+        announcementLive = false;
+        spokenPiece = null;
+        render(core.snapshot());
+    }
+
     public void render(JSONObject s) {
         playback = s.optString("playback", "none");
         voice = s.optString("voice", "idle");
         hasDoc = !s.isNull("docId");
+        String docId = s.isNull("docId") ? null : s.optString("docId", null);
         String title = s.optString("title", "");
         int chunk = s.optInt("chunk", -1);
         int chunks = s.optInt("chunks", 0);
         boolean favorite = s.optBoolean("favorite", false);
         boolean canContinue = s.optBoolean("canContinue", false);
+        String talkGate = s.optString("talkGate", "idle");
+
+        /* Build H (D-13): the title stands on its own line and
+           truncates there; the status line carries facts only. */
+        if (hasDoc) {
+            titleLine.setText(title.isEmpty() ? "Your document" : title);
+        } else {
+            titleLine.setText("DogEar");
+        }
 
         StringBuilder line = new StringBuilder();
-        if (hasDoc && !title.isEmpty()) line.append(title);
-        else if (hasDoc) line.append("Your document");
-        else if (canContinue) line.append("DogEar — a saved place is waiting");
-        else line.append("No document open — choose one from the Library");
-        if ("playing".equals(playback)) line.append(" — reading aloud");
-        else if ("paused".equals(playback)) line.append(" — paused");
-        else if ("stopped".equals(playback)) line.append(" — stopped");
+        if (!hasDoc && canContinue) line.append("A saved place is waiting");
+        else if (!hasDoc) line.append("No document open — choose one from the Library");
+        if ("playing".equals(playback)) {
+            if (line.length() > 0) line.append(" · ");
+            line.append("reading aloud");
+        } else if ("paused".equals(playback)) {
+            if (line.length() > 0) line.append(" · ");
+            line.append("paused");
+        } else if ("stopped".equals(playback)) {
+            if (line.length() > 0) line.append(" · ");
+            line.append("stopped");
+        }
         if (hasDoc && chunks > 0 && chunk >= 0) {
             line.append(" · part ").append(chunk + 1).append(" of ").append(chunks);
         }
-        /* W-2 (Build D, from the L13 fresh-eyes walk): "Save
-           place" confirmed nothing a user could SEE — its only
-           feedback was a transient toast, so a fresh user could
-           not tell the act had worked. The pin is now standing
-           state on the status line, at the point of action,
-           rendered from the core's own snapshot (savedChunk is
-           the open document's pinned place): press Save and this
-           line gains "place saved at part N" and keeps it. */
+        /* Build H (D-7): the two places have different words,
+           because they are different things. The DELIBERATE
+           mark is "Saved place" (the sheet's row, the Continue
+           label and this line all say it); the AUTOMATIC live
+           position is "your place". Through Build G this line
+           said "place saved at part N" for the automatic
+           position too — while the Marks sheet truthfully
+           said "No marks yet" — and the USER seat had to work
+           out unaided that both were true in their own way.
+           W-2's standing confirmation is kept: when a pin
+           exists, this line names it, at the point of action. */
+        int pinChunk = s.optInt("pinChunk", -1);
         int savedChunk = s.optInt("savedChunk", -1);
-        if (hasDoc && savedChunk >= 0) {
-            line.append(" · place saved at part ").append(savedChunk + 1);
+        if (hasDoc && pinChunk >= 0) {
+            line.append(" · Saved place at part ").append(pinChunk + 1);
+        } else if (hasDoc && savedChunk >= 0) {
+            line.append(" · your place at part ").append(savedChunk + 1);
         }
         /* Seat B delta 4 (Evie's steal): time remaining stands
            on the status line beside the part count — but only
@@ -291,8 +393,41 @@ public final class NativeControlBar extends LinearLayout {
         if (hasDoc && timeRemaining != null) {
             line.append(" · ").append(timeRemaining);
         }
-        if ("listening".equals(voice)) line.append(" · listening\u2026");
         statusLine.setText(line.toString());
+
+        /* Build H (D-8): Talk's text state. The machine's own
+           states outrank the mirrored speech; a NEW episode
+           (gate checking, capture live) retires the previous
+           episode's standing reason, as does another document. */
+        if ("checking".equals(talkGate) || "listening".equals(voice)) {
+            stickyFailure = null;
+            stickyDocId = null;
+        }
+        if (stickyDocId != null && docId != null
+                && !stickyDocId.equals(docId)) {
+            stickyFailure = null;
+            stickyDocId = null;
+        }
+        String talkText = null;
+        if ("checking".equals(talkGate)) {
+            talkText = "\uD83C\uDFA4 Talk — checking the voice model "
+                    + "on this device\u2026";
+        } else if ("listening".equals(voice)) {
+            talkText = "\uD83C\uDFA4 Listening — speak now; tap Done "
+                    + "when you finish.";
+        } else if ("processing".equals(voice)) {
+            talkText = "\uD83C\uDFA4 Working on what you said\u2026";
+        } else if (announcementLive && spokenPiece != null) {
+            talkText = spokenPiece;
+        } else if (stickyFailure != null) {
+            talkText = "\uD83C\uDFA4 " + stickyFailure;
+        }
+        if (talkText == null) {
+            talkLine.setVisibility(View.GONE);
+        } else {
+            talkLine.setText(talkText);
+            talkLine.setVisibility(View.VISIBLE);
+        }
 
         lastCanContinue = canContinue;
         if ("playing".equals(playback)) btnPlayPause.setText("\u23F8 Pause");
@@ -317,7 +452,21 @@ public final class NativeControlBar extends LinearLayout {
             btnTalk.setEnabled(hasDoc);
         }
 
-        btnContinue.setEnabled(canContinue);
+        /* Build H (D-7): one play verb per state. The toggle
+           above is the state's one verb (Play / Pause /
+           Resume); Continue exists ONLY when a saved place
+           stands somewhere the reading is not — anywhere else
+           it would be a second, indistinguishable "keep
+           going" (the seats' finding) — and it is labelled
+           with its destination, so its one difference from
+           Resume is on its face. */
+        boolean showContinue = hasDoc && pinChunk >= 0 && pinChunk != chunk;
+        continueRow.setVisibility(showContinue ? View.VISIBLE : View.GONE);
+        if (showContinue) {
+            btnContinue.setText("\u25B6 Continue from saved place \u00B7 part "
+                    + (pinChunk + 1));
+            btnContinue.setEnabled(true);
+        }
         /* The Marks button needs the open document; its acts
            live in the sheet. Favorite state no longer renders
            here — it is an act and a fact inside the sheet and

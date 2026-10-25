@@ -375,34 +375,48 @@ public final class MarksSheet {
     // The text-bearing acts (moved from the control bar, unchanged)
     // ------------------------------------------------------------------
 
+    /* Build H (D-6 residue): a dialog holding TYPED text is
+       never dismissed by an outside or empty-space tap. The
+       Build G seat evidence (synthesis in the evidence index)
+       proved the reported "silent bookmark losses" were
+       harness taps landing on stale coordinates after the IME
+       moved the dialog — but the product truth underneath them
+       stands: one stray tap outside a half-typed label closed
+       the dialog and discarded the typing with no trace. The
+       text dialogs now close only by their named buttons —
+       Save, or an explicit Cancel a person chose. */
+    private void showTextDialog(AlertDialog.Builder builder) {
+        AlertDialog d = builder.create();
+        d.setCanceledOnTouchOutside(false);
+        d.show();
+    }
+
     private void bookmarkDialog() {
         final EditText input = new EditText(activity);
         input.setHint("Label (optional)");
         input.setTextColor(Color.BLACK);
-        new AlertDialog.Builder(activity)
+        showTextDialog(new AlertDialog.Builder(activity)
                 .setTitle("Bookmark this place")
                 .setView(input)
                 .setPositiveButton("Save", (d, w) -> {
                     core.addBookmark(input.getText().toString(), PlayerCore.Source.BAR);
                     afterAct("Bookmark saved");
                 })
-                .setNegativeButton("Cancel", null)
-                .show();
+                .setNegativeButton("Cancel", null));
     }
 
     private void tagDialog() {
         final EditText input = new EditText(activity);
         input.setHint("Tag name");
         input.setTextColor(Color.BLACK);
-        new AlertDialog.Builder(activity)
+        showTextDialog(new AlertDialog.Builder(activity)
                 .setTitle("Tag this document")
                 .setView(input)
                 .setPositiveButton("Add tag", (d, w) -> {
                     core.addTag(input.getText().toString(), PlayerCore.Source.BAR);
                     afterAct("Tag added");
                 })
-                .setNegativeButton("Cancel", null)
-                .show();
+                .setNegativeButton("Cancel", null));
     }
 
     private void noteDialog() {
@@ -411,15 +425,14 @@ public final class MarksSheet {
         input.setTextColor(Color.BLACK);
         input.setMinLines(2);
         input.setGravity(Gravity.TOP);
-        new AlertDialog.Builder(activity)
+        showTextDialog(new AlertDialog.Builder(activity)
                 .setTitle("Note at this place")
                 .setView(input)
                 .setPositiveButton("Save note", (d, w) -> {
                     core.addNote(input.getText().toString(), PlayerCore.Source.BAR);
                     afterAct("Note saved");
                 })
-                .setNegativeButton("Cancel", null)
-                .show();
+                .setNegativeButton("Cancel", null));
     }
 
     private int dp(int v) {

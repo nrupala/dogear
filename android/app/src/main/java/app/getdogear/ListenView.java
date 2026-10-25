@@ -50,7 +50,13 @@ public final class ListenView extends ScrollView {
         body = new LinearLayout(ctx);
         body.setOrientation(LinearLayout.VERTICAL);
         int pad = dp(16);
-        body.setPadding(pad, pad, pad, pad);
+        /* Build H (QUALITY baseline B1): a real top inset on
+           the page content. The reader's first line rendered
+           hard against the surface edge — on Build G a 16-px
+           sliver of it stood clipped at the top of the deck in
+           the seat's captures. The page now breathes: 24dp
+           above the first line, always. */
+        body.setPadding(pad, dp(24), pad, pad);
         addView(body);
         noteLine = text("", 13, 0xFF8A4B00);
         noteLine.setVisibility(GONE);
@@ -132,9 +138,28 @@ public final class ListenView extends ScrollView {
         chunkViews[chunk].setBackgroundColor(0xFFDCEBFD);
         chunkViews[chunk].setTypeface(null, Typeface.BOLD);
         final TextView target = chunkViews[chunk];
+        final int atChunk = chunk;
         post(() -> {
-            int y = target.getTop() - dp(40);
-            smoothScrollTo(0, Math.max(0, y));
+            /* Build H (B1, second half): the follow-scroll is
+               disciplined. Through Build G EVERY highlight move
+               re-anchored the page — including the jump to part
+               1 of a short document, whose first line then stood
+               clipped at the very top of the deck (the seat's
+               16-px sliver). Part 1 rests at the page top; any
+               other part scrolls ONLY when it falls outside the
+               comfortable view, and then anchors with real
+               headroom (56dp) above it — the current line is
+               never the clipped line. */
+            if (atChunk == 0) {
+                smoothScrollTo(0, 0);
+                return;
+            }
+            int top = target.getTop();
+            int viewTop = getScrollY();
+            int viewBottom = viewTop + getHeight();
+            if (top < viewTop + dp(24) || top > viewBottom - dp(96)) {
+                smoothScrollTo(0, Math.max(0, top - dp(56)));
+            }
         });
     }
 

@@ -665,6 +665,24 @@ public final class PlayerCore {
             JSONObject saved = docId == null ? null : store.savedFor(docId);
             if (saved == null && docId != null) saved = store.positionFor(docId);
             s.put("savedChunk", saved == null ? -1 : saved.optInt("chunk", -1));
+            /* Build H (D-7): the DELIBERATE pin, named apart
+               from the live position. Through Build G the
+               surfaces could not tell a saved place from the
+               automatic position (savedChunk above falls back
+               to it), so the deck said "place saved" over a
+               place nobody saved, and a standing Continue stood
+               beside Resume with nothing to tell them apart.
+               pinChunk is the pin or -1; surfaces word the two
+               places differently ("Saved place" / "your place")
+               and show Continue only against a real pin. */
+            JSONObject pin = docId == null ? null : store.savedFor(docId);
+            s.put("pinChunk", pin == null ? -1 : pin.optInt("chunk", -1));
+            /* Build H (D-8): the Talk gate's pending state is
+               snapshot truth, so the deck can SAY what Talk is
+               doing during the seconds the gate decides —
+               through Build G those seconds were invisible on
+               every surface. */
+            s.put("talkGate", talkGatePending ? "checking" : "idle");
         } catch (Exception ignored) {}
         return s;
     }

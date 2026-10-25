@@ -2,6 +2,7 @@ package app.getdogear;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -18,6 +19,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import org.json.JSONArray;
@@ -89,8 +91,8 @@ public final class MainActivity extends Activity
     private SettingsView settingsView;
     private NowListeningStrip strip;
     private MarksSheet marksSheet;
-    private Button navLibrary, navSettings;
-    private View navIndLibrary, navIndSettings;
+    private TextView navLibrary, navSettings;
+    private View navPillLibrary, navPillSettings;
     private LinearLayout navBar;
     /* Build F (U-6): the Talk gate's outstanding engine probe —
        the callback the core is waiting on, and its request
@@ -138,6 +140,19 @@ public final class MainActivity extends Activity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        /* Build H (QUALITY baseline B1): the app's grounds are
+           light (pale Library ground, white reader paper), and
+           edge-to-edge drawing left the status bar's clock and
+           icons rendering WHITE over them — illegible on every
+           screen. The status bar now takes the light-ground
+           appearance (dark icons) to match the surfaces under
+           it. */
+        try {
+            androidx.core.view.WindowInsetsControllerCompat wic =
+                    new androidx.core.view.WindowInsetsControllerCompat(
+                            getWindow(), getWindow().getDecorView());
+            wic.setAppearanceLightStatusBars(true);
+        } catch (Exception ignored) {}
         main = new Handler(Looper.getMainLooper());
         core = PlayerCoreProvider.get(this);
         marks = PlayerCoreProvider.marks(this);
@@ -149,6 +164,24 @@ public final class MainActivity extends Activity
 
         announcer = new Announcer(speaker, main, diag,
                 what -> listenView.setNote(what));
+        /* Build H (D-8): the announcer's pieces are mirrored
+           into the Listen deck as text — what Talk says stands
+           on the surface while it is said, and a failure's
+           reason stays standing after. The sink reports the
+           open document so the deck can retire a reason when
+           the document changes. */
+        announcer.setPieceSink(new Announcer.PieceSink() {
+            @Override public void onPiece(String tag, String text) {
+                if (controlBar != null) {
+                    controlBar.onSpokenPiece(tag, text, openDocId);
+                }
+            }
+            @Override public void onJobFinished(String tag) {
+                if (controlBar != null) {
+                    controlBar.onSpokenJobFinished(tag);
+                }
+            }
+        });
         feeder = new NativeFeeder(core, documents, speaker, main, diag,
                 what -> listenView.setNote(what));
         float rate = speechRate();
@@ -204,13 +237,25 @@ public final class MainActivity extends Activity
 
         core.setListener(coreListener);
         SpeechService.setEventSink(this);
-        requestNotificationPermission();
 
         if (Migration.needed(this, documents)) {
             Migration.run(this, BundledAssets.loader(this), documents, marks,
                     main, (imported, licenceToken) -> {
                         diagEvent("migration", "docs", imported);
-                        if (licenceToken != null) {
+                        /* Build H (D-11): a page-era token enters
+                           the native store ONLY if it is shaped
+                           like a licence key at all. The restored
+                           page store can carry a stub the old shell
+                           left behind; through Build G the stub was
+                           stored verbatim and Settings then claimed
+                           "a licence key is saved but not verified"
+                           on installs where the user had never saved
+                           a key — a phantom state on a fresh install
+                           (and again after pm clear re-ran the
+                           migration). A real page-era key parses and
+                           migrates exactly as before. */
+                        if (licenceToken != null
+                                && Licence.parsePayload(licenceToken) != null) {
                             licence.store(licenceToken);
                             engineHost.verifyLicence(licenceReqSeq++, licenceToken);
                         }
@@ -329,12 +374,21 @@ public final class MainActivity extends Activity
            apart by bold text alone (the QUALITY seat named
            the nav the flattest element in the app). */
         navBar.setElevation(dp(8));
-        navLibrary = navButton("Library", AREA_LIBRARY);
-        navSettings = navButton("Settings", AREA_SETTINGS);
-        navIndLibrary = navIndicator();
-        navIndSettings = navIndicator();
-        navBar.addView(navCell(navIndLibrary, navLibrary));
-        navBar.addView(navCell(navIndSettings, navSettings));
+        /* Build H (QUALITY baseline B2): the bar is now the
+           Material navigation bar Google's guidelines specify —
+           the stack's FLOOR layer. Each door is an icon in a
+           PILL (the active door's pill is filled; inactive
+           doors carry no pill) with its label beneath, the
+           whole cell the tap target. The Build F hairline
+           indicator and slab buttons are retired; the ground
+           colour and elevation stay, so the bar still belongs
+           to this app's depth language. */
+        navPillLibrary = navPill(R.drawable.ic_nav_library, "Library");
+        navPillSettings = navPill(R.drawable.ic_nav_tune, "Settings");
+        navLibrary = navLabel("Library");
+        navSettings = navLabel("Settings");
+        navBar.addView(navCell(navPillLibrary, navLibrary, AREA_LIBRARY));
+        navBar.addView(navCell(navPillSettings, navSettings, AREA_SETTINGS));
         root.addView(navBar);
 
         setContentView(root);
@@ -352,23 +406,60 @@ public final class MainActivity extends Activity
         });
     }
 
-    private View navIndicator() {
-        View v = new View(this);
-        v.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(3)));
-        return v;
+    /** A Material nav pill: a rounded container holding the
+     *  door's icon. Its background is the active indicator —
+     *  filled accent for the current door, clear otherwise —
+     *  set by renderNav. */
+    private View navPill(int iconRes, String description) {
+        LinearLayout pill = new LinearLayout(this);
+        pill.setOrientation(LinearLayout.HORIZONTAL);
+        pill.setGravity(android.view.Gravity.CENTER);
+        android.widget.ImageView icon = new android.widget.ImageView(this);
+        icon.setImageResource(iconRes);
+        icon.setContentDescription(description);
+        LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(
+                dp(22), dp(22));
+        pill.addView(icon, ip);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                dp(56), dp(32));
+        lp.gravity = android.view.Gravity.CENTER_HORIZONTAL;
+        pill.setLayoutParams(lp);
+        return pill;
     }
 
-    private LinearLayout navCell(View indicator, Button button) {
+    private android.graphics.drawable.GradientDrawable pillBackground(
+            boolean active) {
+        android.graphics.drawable.GradientDrawable g =
+                new android.graphics.drawable.GradientDrawable();
+        g.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        g.setCornerRadius(dp(16));
+        g.setColor(active ? 0xFF2FA37C : 0x00000000);
+        return g;
+    }
+
+    private TextView navLabel(String label) {
+        TextView t = new TextView(this);
+        t.setText(label);
+        t.setTextSize(13f);
+        t.setGravity(android.view.Gravity.CENTER);
+        return t;
+    }
+
+    private LinearLayout navCell(View pill, TextView label, final int target) {
         LinearLayout cell = new LinearLayout(this);
         cell.setOrientation(LinearLayout.VERTICAL);
+        cell.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
+        cell.setPadding(0, dp(8), 0, dp(8));
         cell.setLayoutParams(new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        cell.addView(indicator);
-        button.setLayoutParams(new LinearLayout.LayoutParams(
+        cell.setClickable(true);
+        cell.setOnClickListener(v -> showArea(target));
+        cell.addView(pill);
+        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT));
-        cell.addView(button);
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        llp.topMargin = dp(2);
+        cell.addView(label, llp);
         return cell;
     }
 
@@ -398,23 +489,14 @@ public final class MainActivity extends Activity
         root.requestApplyInsets();
     }
 
-    private Button navButton(String label, final int target) {
-        Button b = new Button(this);
-        b.setText(label);
-        b.setAllCaps(false);
-        b.setTextSize(15f);
-        b.setLayoutParams(new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        b.setOnClickListener(v -> showArea(target));
-        return b;
-    }
-
     private void renderNav() {
         /* While the Listen view is up, the highlighted door is
            the one it was opened from — Listen is a view over a
-           door, not a third door. */
-        Button[] all = {navLibrary, navSettings};
-        View[] inds = {navIndLibrary, navIndSettings};
+           door, not a third door. The active door carries the
+           filled pill (Build H, B2); the label's weight and
+           colour agree. */
+        TextView[] all = {navLibrary, navSettings};
+        View[] pills = {navPillLibrary, navPillSettings};
         int[] areas = {AREA_LIBRARY, AREA_SETTINGS};
         for (int i = 0; i < all.length; i++) {
             boolean active = areas[i] == area;
@@ -422,9 +504,8 @@ public final class MainActivity extends Activity
             all[i].setTypeface(null, active
                     ? android.graphics.Typeface.BOLD
                     : android.graphics.Typeface.NORMAL);
-            if (inds[i] != null) {
-                inds[i].setBackgroundColor(active
-                        ? 0xFF2FA37C : 0x00000000);
+            if (pills[i] != null) {
+                pills[i].setBackground(pillBackground(active));
             }
         }
     }
@@ -692,6 +773,18 @@ public final class MainActivity extends Activity
             marks.deleteDocument(docId);
         }
         diagEvent("document-removed", "doc", docId);
+        /* Build H (D-12): the strip re-derives from the truth
+           NOW, on every removal path. Through Build G the
+           strip re-rendered only on core snapshots — and
+           removing a document that was NOT open emits none, so
+           after the last document was removed from the Library
+           the strip kept standing over the empty Library,
+           presenting the deleted document, its Continue
+           silently dead (QUALITY C6). The open-document path
+           converges through the core's queued session end as
+           before; the posted second render covers both. */
+        renderStrip(core.snapshot());
+        main.post(() -> renderStrip(core.snapshot()));
         Toast.makeText(this, "Removed.", Toast.LENGTH_SHORT).show();
     }
 
@@ -709,8 +802,25 @@ public final class MainActivity extends Activity
         int total = snap.optInt("chunks", 0);
         int target = Math.max(0, Math.min(chunk, Math.max(0, total - 1)));
         feeder.halt();
+        /* Build H (D-9): a jump is the user's act — an in-flight
+           Talk announcement does not talk over it. (The feeder's
+           re-feed would flush the announcement's current piece
+           in any case; cancelling here keeps the announcer's
+           own accounting honest instead of declaring the piece
+           lost to a jump the user chose.) */
+        announcer.cancel();
         core.sessionStarted(docId, doc.title, target, total);
         if (playAfter) {
+            /* Play-state preservation is structural, not
+               incidental: the re-feed is posted onto the SAME
+               looper the core's session runnable rides, behind
+               it — the session lands at the target first, then
+               the feeder feeds exactly that chunk and
+               utteranceSpoke returns the machine to PLAYING.
+               A jump made while paused or stopped posts no
+               feed: the place moves, and the deck's status line
+               states the new place and the stopped state in
+               words (the seats' D-9 rule). */
             main.post(() -> feeder.startFromSnapshot());
         }
     }
@@ -721,18 +831,36 @@ public final class MainActivity extends Activity
 
     @Override
     public void pickDocumentFile() {
+        /* Build H (D-10): the picker admits the advertised
+           format set — text, plus the unlock's PDF, EPUB, Word
+           and HTML — so a paid format can actually REACH the
+           gate the surface promises. Through Build G the
+           picker was text-only in effect, yet HTML (text/html)
+           slipped through it ungated while the other three
+           were simply unpickable: the gate existed nowhere. */
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         i.addCategory(Intent.CATEGORY_OPENABLE);
         i.setType("text/*");
+        i.putExtra(Intent.EXTRA_MIME_TYPES, PAID_MIME_TYPES);
         try {
             startActivityForResult(i, REQ_PICK);
         } catch (Exception e) {
             Intent fallback = new Intent(Intent.ACTION_GET_CONTENT);
             fallback.setType("text/*");
+            fallback.putExtra(Intent.EXTRA_MIME_TYPES, PAID_MIME_TYPES);
             fallback.addCategory(Intent.CATEGORY_OPENABLE);
             startActivityForResult(fallback, REQ_PICK);
         }
     }
+
+    private static final String[] PAID_MIME_TYPES = {
+            "text/html",
+            "application/xhtml+xml",
+            "application/pdf",
+            "application/epub+zip",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    };
 
     @Override
     public void addPastedText(String title, String text) {
@@ -750,6 +878,60 @@ public final class MainActivity extends Activity
             return;
         }
         Uri uri = data.getData();
+        /* Build H (D-10): classify FIRST, from the file's real
+           name (extension intact) and the resolver's MIME type,
+           before a byte is read. The advertised unlock formats
+           meet their gate HERE, in place, with the reason and
+           the path to unlock — through Build G no gate existed
+           on this path at all: an .html file opened on the free
+           tier and was read aloud as raw markup, tags and all,
+           while Help & About sold HTML as unlock content
+           (QUALITY C5). */
+        String rawName = displayNameRaw(uri);
+        String mime = null;
+        try {
+            mime = getContentResolver().getType(uri);
+        } catch (Exception ignored) {}
+        Formats.Kind kind = Formats.kindFor(rawName, mime);
+        String title = titleFromRawName(rawName);
+        if (Formats.isPaid(kind) && !licence.isUnlocked()) {
+            diagEvent("add-gated", "format", Formats.label(kind));
+            new AlertDialog.Builder(this)
+                    .setTitle("That format is part of the unlock")
+                    .setMessage(Formats.label(kind)
+                            + " files open with the DogEar unlock — one "
+                            + "payment of US$24.99, never a subscription — "
+                            + "for unlimited listening, the PDF, EPUB, Word "
+                            + "and HTML formats, and two-way voice. In "
+                            + "Settings, under \"Plan & licence\", you can "
+                            + "enter a licence key. Text files and pasted "
+                            + "text are always free.")
+                    .setPositiveButton("Open Plan & licence",
+                            (d, w) -> showArea(AREA_SETTINGS))
+                    .setNegativeButton("Not now", null)
+                    .show();
+            return;
+        }
+        if (Formats.isPaid(kind) && kind != Formats.Kind.HTML) {
+            /* Unlocked, but this build carries no PDF/EPUB/Word
+               text extractor — say so plainly, in place, instead
+               of reading bytes aloud as if they were prose. The
+               web app reads these formats with the unlock today;
+               the native extractor is owed work, not a claim. */
+            diagEvent("add-unreadable-here", "format", Formats.label(kind));
+            new AlertDialog.Builder(this)
+                    .setTitle("This build can't open "
+                            + Formats.label(kind) + " yet")
+                    .setMessage("Your unlock covers "
+                            + Formats.label(kind) + " — DogEar's web app "
+                            + "(app.getdogear.app) reads it today. This app "
+                            + "itself does not read " + Formats.label(kind)
+                            + " files yet, so nothing was added. Your file "
+                            + "is unchanged.")
+                    .setPositiveButton("OK", null)
+                    .show();
+            return;
+        }
         try {
             InputStream in = getContentResolver().openInputStream(uri);
             if (in == null) throw new Exception("no stream");
@@ -770,15 +952,31 @@ public final class MainActivity extends Activity
             }
             in.close();
             String text = new String(out.toByteArray(), StandardCharsets.UTF_8);
+            if (kind == Formats.Kind.HTML) {
+                /* The second half of D-10: markup never reaches
+                   the reader. The HTML is stripped to its
+                   readable text here, at the door — what is
+                   stored, chunked and read aloud is prose. */
+                String readable = HtmlText.strip(text);
+                if (readable.isEmpty()) {
+                    Toast.makeText(this, "That HTML file had no readable "
+                            + "text in it.", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                DocumentStore.Doc doc = documents.add(title, "html", readable,
+                        System.currentTimeMillis());
+                diagEvent("document-added", "doc", doc.id);
+                openDocument(doc.id);
+                return;
+            }
             if (text.indexOf('\0') >= 0) {
-                Toast.makeText(this, "That file is not plain text. In this "
-                        + "build, Add takes text files; PDF, EPUB, Word and "
-                        + "HTML live on DogEar's web app for now.",
+                Toast.makeText(this, "That file is not plain text. DogEar "
+                        + "reads text files here; PDF, EPUB, Word and HTML "
+                        + "open with the unlock.",
                         Toast.LENGTH_LONG).show();
                 return;
             }
-            String name = displayName(uri);
-            DocumentStore.Doc doc = documents.add(name, "text", text,
+            DocumentStore.Doc doc = documents.add(title, "text", text,
                     System.currentTimeMillis());
             diagEvent("document-added", "doc", doc.id);
             openDocument(doc.id);
@@ -788,7 +986,7 @@ public final class MainActivity extends Activity
         }
     }
 
-    private String displayName(Uri uri) {
+    private String displayNameRaw(Uri uri) {
         try {
             Cursor c = getContentResolver().query(uri, null, null, null, null);
             if (c != null) {
@@ -796,14 +994,21 @@ public final class MainActivity extends Activity
                 if (idx >= 0 && c.moveToFirst()) {
                     String name = c.getString(idx);
                     c.close();
-                    if (name != null && !name.isEmpty()) {
-                        return name.replaceAll("\\.[A-Za-z0-9]{1,5}$", "");
-                    }
+                    if (name != null && !name.isEmpty()) return name;
                 }
                 c.close();
             }
         } catch (Exception ignored) {}
         return null;
+    }
+
+    private static String titleFromRawName(String rawName) {
+        if (rawName == null || rawName.isEmpty()) return null;
+        return rawName.replaceAll("\\.[A-Za-z0-9]{1,5}$", "");
+    }
+
+    private String displayName(Uri uri) {
+        return titleFromRawName(displayNameRaw(uri));
     }
 
     // ----------------------------------------------------------
@@ -847,16 +1052,25 @@ public final class MainActivity extends Activity
             if (status != TextToSpeech.SUCCESS || voiceProbe == null) return;
             try {
                 Set<Voice> voices = voiceProbe.getVoices();
-                List<String> names = new ArrayList<String>();
+                /* Build H (D-14): the view receives voice
+                   PRESENTATIONS (human labels), not raw engine
+                   names — the names ride inside as identity,
+                   one layer down. Sorted by the label a person
+                   reads, not by the code. */
+                List<SettingsView.VoiceInfo> infos =
+                        new ArrayList<SettingsView.VoiceInfo>();
                 if (voices != null) {
-                    for (Voice v : voices) names.add(v.getName());
+                    for (Voice v : voices) {
+                        infos.add(SettingsView.voiceInfo(v));
+                    }
                 }
-                Collections.sort(names);
+                Collections.sort(infos,
+                        (a, b) -> a.label.compareTo(b.label));
                 String current = savedVoiceName();
                 if (current == null && voiceProbe.getVoice() != null) {
                     current = voiceProbe.getVoice().getName();
                 }
-                settingsView.setVoices(names, current);
+                settingsView.setVoices(infos, current);
             } catch (Exception ignored) {}
         });
     }
@@ -879,6 +1093,7 @@ public final class MainActivity extends Activity
         @Override
         public void onSnapshot(JSONObject snapshot) {
             diag.snapshot(snapshot, System.currentTimeMillis());
+            maybeRequestNotificationPermission(snapshot);
             String doc = snapshot.isNull("docId")
                     ? null : snapshot.optString("docId", null);
             /* Build E: the bar's pushed facts (time remaining,
@@ -1047,16 +1262,37 @@ public final class MainActivity extends Activity
     // Small helpers
     // ----------------------------------------------------------
 
-    private void requestNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= 33
-                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED) {
-            try {
-                requestPermissions(
-                        new String[]{Manifest.permission.POST_NOTIFICATIONS},
-                        REQ_NOTIF);
-            } catch (Exception ignored) {}
+    /* Build H (QUALITY baseline B3): the notification
+       permission is asked AT THE NEED, not cold. Through
+       Build G onCreate asked before any document or playback
+       existed — the first thing a first launch showed was a
+       permission sheet for a feature the user had not met.
+       The notification exists for one thing: background
+       playback (the service's media controls and its survival
+       off-screen). The ask now rides the first transition
+       into PLAYING — the moment background play becomes a
+       real possibility — and happens once per install,
+       remembered in prefs; it is never re-asked on relaunch
+       (the TESTER seat's L3 note: every relaunch re-raised
+       the cold ask). Denial costs nothing: playback continues,
+       the notification simply stays unshown. */
+    private void maybeRequestNotificationPermission(JSONObject snapshot) {
+        if (snapshot == null
+                || !"playing".equals(snapshot.optString("playback", ""))) {
+            return;
         }
+        if (Build.VERSION.SDK_INT < 33) return;
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED) return;
+        android.content.SharedPreferences p =
+                getSharedPreferences(PREFS, MODE_PRIVATE);
+        if (p.getBoolean("notifAsked", false)) return;
+        p.edit().putBoolean("notifAsked", true).apply();
+        try {
+            requestPermissions(
+                    new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                    REQ_NOTIF);
+        } catch (Exception ignored) {}
     }
 
     private int dp(int v) {

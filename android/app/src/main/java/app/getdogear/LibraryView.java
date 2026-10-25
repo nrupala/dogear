@@ -235,10 +235,20 @@ public final class LibraryView extends LinearLayout {
         box.setPadding(pad, pad, pad, 0);
         final EditText titleIn = new EditText(getContext());
         titleIn.setHint("Title (optional)");
+        /* Build H (QUALITY baseline B4): height discipline.
+           The Title field was a free-growing multi-line field —
+           text wrapping in it pushed the dialog's actions off
+           the bottom of the screen, unreachable (and the IME
+           covered the body field besides). A title is one line;
+           the body is capped and scrolls inside itself, so
+           Cancel and Add are ALWAYS on screen. */
+        titleIn.setSingleLine(true);
         box.addView(titleIn);
         final EditText textIn = new EditText(getContext());
         textIn.setHint("Paste the text to read aloud");
         textIn.setMinLines(5);
+        textIn.setMaxLines(8);
+        textIn.setVerticalScrollBarEnabled(true);
         box.addView(textIn);
         new AlertDialog.Builder(getContext())
                 .setTitle("Add pasted text")

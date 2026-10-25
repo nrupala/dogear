@@ -511,6 +511,45 @@ public class PlayerCoreTest {
     }
 
     @Test
+    public void snapshotSeparatesThePinFromTheLivePosition() {
+        // Build H (D-7): the deck's Continue and its place
+        // wording turn on the DIFFERENCE between the deliberate
+        // pin and the automatic live position. With no pin,
+        // pinChunk is -1 and savedChunk falls back to the live
+        // position (the "your place" state).
+        speakChunk(5, 20);
+        JSONObject s = core.snapshot();
+        assertEquals(-1, s.optInt("pinChunk"));
+        assertEquals(5, s.optInt("savedChunk"));
+        // Pin the place, then read on: the pin stands at 5
+        // while the position advances to 9, and savedChunk
+        // keeps naming the pin.
+        core.savePlace(PlayerCore.Source.BAR);
+        speakChunk(9, 20);
+        s = core.snapshot();
+        assertEquals(5, s.optInt("pinChunk"));
+        assertEquals(5, s.optInt("savedChunk"));
+        assertEquals(9, s.optInt("chunk"));
+    }
+
+    @Test
+    public void snapshotNamesThePendingTalkGate() {
+        // Build H (D-8): while the gate decides, the snapshot
+        // says "checking" — the deck's Talk line renders from
+        // it. Once the watchdog resolves the episode, the
+        // snapshot returns to "idle".
+        FakeGate gate = new FakeGate();
+        gate.hold = true;
+        core.setTalkGate(gate);
+        speakChunk(2, 30);
+        assertEquals("idle", core.snapshot().optString("talkGate"));
+        core.talkStart(PlayerCore.Source.BAR);
+        assertEquals("checking", core.snapshot().optString("talkGate"));
+        poster.fireDelayed();
+        assertEquals("idle", core.snapshot().optString("talkGate"));
+    }
+
+    @Test
     public void storeSurvivesReload() {
         speakChunk(13, 60);
         core.addNote("persisted", PlayerCore.Source.BAR);
