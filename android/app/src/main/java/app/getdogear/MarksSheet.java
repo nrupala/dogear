@@ -57,6 +57,7 @@ public final class MarksSheet {
     private LinearLayout listBox;
     private TextView confirmLine;
     private TextView titleLine;
+    private Button savePlaceButton;
     private String docId;
     /* Build F (U-3): the sheet's window ends ABOVE the app's
        navigation bar — the host measures the nav (plus the
@@ -159,10 +160,22 @@ public final class MarksSheet {
         confirmLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
         panel.addView(confirmLine);
 
-        panel.addView(actionButton("Save place", v -> {
+        /* Build J (I-U2): the Save place control NAMES ITS
+           TARGET in its own face — "Save place · part 34" —
+           so the person knows what will be pinned BEFORE the
+           tap, not after it. Through Build I the control said
+           only "Save place" while the reading sat half-paused
+           from listening and resuming; the fresh-eyes seat had
+           to tap blind and read the confirmation to learn
+           what was saved. The label is kept live by
+           syncSavePlaceLabel() — from refresh() and from every
+           playback snapshot while the sheet is open (the host
+           calls it beside its strip render). */
+        savePlaceButton = actionButton("Save place", v -> {
             core.savePlace(PlayerCore.Source.BAR);
             afterAct("Place saved");
-        }));
+        });
+        panel.addView(savePlaceButton);
         panel.addView(actionButton("Bookmark\u2026", v -> bookmarkDialog()));
         panel.addView(actionButton("Favorite", v -> {
             core.toggleFavorite(PlayerCore.Source.BAR);
@@ -308,9 +321,22 @@ public final class MarksSheet {
     // Rendering — from the core's marks, never the sheet's memory
     // ------------------------------------------------------------------
 
+    /** Build J (I-U2): keep the Save place control's face
+     *  naming the part it will pin. A label-only update — the
+     *  marks list is NOT rebuilt here (a rebuild per snapshot
+     *  would reset the list's scroll on every chunk). */
+    public void syncSavePlaceLabel() {
+        if (savePlaceButton == null) return;
+        int chunk = core.snapshot().optInt("chunk", -1);
+        savePlaceButton.setText(chunk >= 0
+                ? "Save place \u00B7 part " + (chunk + 1)
+                : "Save place");
+    }
+
     public void refresh() {
         if (dialog == null || listBox == null || docId == null) return;
         JSONObject snap = core.snapshot();
+        syncSavePlaceLabel();
         String title = snap.optString("title", "");
         titleLine.setText("Marks" + (title.isEmpty() ? "" : " \u2014 " + title));
 

@@ -174,11 +174,29 @@ public final class LibraryView extends LinearLayout {
         sb.append(parts).append(parts == 1 ? " part" : " parts");
         JSONObject saved = shell.marks().savedFor(doc.id);
         JSONObject live = shell.marks().positionFor(doc.id);
-        JSONObject place = saved != null ? saved : live;
-        if (place != null) {
-            sb.append(" \u00B7 part ").append(place.optInt("chunk", 0) + 1)
-                    .append(" of ").append(Math.max(parts, place.optInt("chunks", 0)));
-            if (saved != null) sb.append(" \u00B7 saved");
+        /* Build J (I-U3 + Q-I6): the row LEADS WITH THE CURRENT
+           PLACE — the same leading number the Now Listening
+           strip shows for the same document. Through Build I
+           the row preferred the SAVED place (a pin from an
+           earlier sitting) and tagged it with a terse
+           " \u00B7 saved", so the library and the strip led with
+           two different numbers for one document and the
+           fresh-eyes seat had to guess which was "where I
+           am". The saved place now FOLLOWS, in full words:
+           "60 parts \u00B7 part 33 of 60 \u00B7 saved place at part 24". */
+        if (live != null) {
+            sb.append(" \u00B7 part ").append(live.optInt("chunk", 0) + 1)
+                    .append(" of ").append(Math.max(parts,
+                            live.optInt("chunks", 0)));
+        }
+        if (saved != null) {
+            if (live == null) {
+                sb.append(" \u00B7 part ").append(saved.optInt("chunk", 0) + 1)
+                        .append(" of ").append(Math.max(parts,
+                                saved.optInt("chunks", 0)));
+            }
+            sb.append(" \u00B7 saved place at part ")
+                    .append(saved.optInt("chunk", 0) + 1);
         }
         if (shell.marks().isFavorite(doc.id)) sb.append(" \u00B7 \u2605");
         /* W-3 (Build D): a document's bookmarks are countable

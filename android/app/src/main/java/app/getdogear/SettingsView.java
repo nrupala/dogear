@@ -154,10 +154,29 @@ public final class SettingsView extends ScrollView {
             head.setTextSize(14);
             head.setTextColor(0xFF10243E);
             head.setTypeface(null, Typeface.BOLD);
+            /* Build J (Q-I2): the head yields, the chip never
+               does — one line, ellipsized, allowed to shrink to
+               nothing before the chip is ever squeezed. */
+            head.setSingleLine(true);
+            head.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            head.setMinWidth(0);
             headRow.addView(head, new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             Button action = new Button(getContext());
             action.setAllCaps(false);
+            /* Build J (Q-I2): the chip's text gets ROOM — its
+               own padding on both sides and a clear margin from
+               the head, so "Needs unlock" can never again run
+               flush to the chip's right edge (the QUALITY seat
+               measured it crowding the edge on the Tiny/Base
+               cards). */
+            action.setSingleLine(true);
+            action.setPadding(dp(16), dp(8), dp(16), dp(8));
+            LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            alp.setMarginStart(dp(10));
+            action.setLayoutParams(alp);
             /* Depth + contrast (Build F, Q-2/Q-4): the shelf's
                state chips carry the shared in-card control
                language (light rounded face, small elevation,
@@ -173,6 +192,20 @@ public final class SettingsView extends ScrollView {
             action.setOnClickListener(v -> tierAction(tier));
             headRow.addView(action);
             row.addView(headRow);
+            /* Build J (I-U1): the WHOLE CARD is the tap target.
+               Through Build I only the small chip acted — the
+               fresh-eyes seat tapped the model's big name text
+               first, twice, and nothing happened, because the
+               name was inert decoration over a live card. The
+               card now acts exactly as its chip does —
+               identically, including the chip's two live-progress
+               states (Checking\u2026 / Downloading\u2026), where the
+               chip is disabled and the card answers the same
+               way: with the progress already standing on it. */
+            final Button chipRef = action;
+            row.setOnClickListener(v -> {
+                if (chipRef.isEnabled()) tierAction(tier);
+            });
             TextView state = new TextView(getContext());
             state.setTextSize(13.5f);
             state.setTextColor(0xFF33475B);
@@ -219,14 +252,16 @@ public final class SettingsView extends ScrollView {
        code WAS the label: the chooser listed engine codes and
        the Settings line read "Voice: en-US-language", which
        tells a person nothing (QUALITY C8). A voice now
-       presents as its language in words, on-device or online,
-       and its distinguishing code ("SFG") — "English (United
-       States) · on device · SFG". (Build I amends D-14's last
-       clause: the raw name no longer stands as the chooser
-       row's second line at all — the seats read it as noise
-       (H-U2). It lives behind the row's Details affordance;
-       the only second line a row may carry now is the online
-       caution. See voiceDialog.) */
+       presents as its language in words, on-device or online
+       — "English (United States) · on device". (Build I
+       amended D-14's last clause: the raw name no longer
+       stands as the chooser row's second line at all — the
+       seats read it as noise (H-U2); it lives behind the
+       row's Details affordance, and the only second line a
+       row may carry is the online caution. Build J (Q-I3)
+       removes the distinguishing CODE from the label itself:
+       same-name voices are told apart by a word, never by
+       "SFG". See voiceLabel and disambiguated.) */
     /** The online-voice caution, word for word wherever an
      *  online voice is offered (Build I, Q-H5): the picker
      *  row, the Details dialog, the current-voice line. One
@@ -246,11 +281,27 @@ public final class SettingsView extends ScrollView {
         final String name;    // raw engine name (the identity)
         final String label;   // human-readable (the presentation)
         final boolean online; // the engine's -network marker
+        /* Build J (Q-I3): a WORD the engine itself offers to
+           tell same-name voices apart — a plain feature word
+           from the voice's own feature set ("female", "male"),
+           never the variant code. Empty when the engine offers
+           none; the list-level disambiguation in setVoices
+           falls back to ordinal words. */
+        final String variant;
 
         VoiceInfo(String name, String label) {
+            this(name, label, "");
+        }
+
+        VoiceInfo(String name, String label, String variant) {
             this.name = name;
             this.label = label;
             this.online = isOnlineVoiceName(name);
+            this.variant = variant == null ? "" : variant;
+        }
+
+        VoiceInfo withLabel(String newLabel) {
+            return new VoiceInfo(name, newLabel, variant);
         }
     }
 
@@ -261,7 +312,34 @@ public final class SettingsView extends ScrollView {
             java.util.Locale loc = v.getLocale();
             if (loc != null) language = loc.getDisplayName(java.util.Locale.ENGLISH);
         } catch (Exception ignored) {}
-        return new VoiceInfo(name, voiceLabel(name, language));
+        return new VoiceInfo(name, voiceLabel(name, language),
+                variantWord(v));
+    }
+
+    /** The distinguisher word a voice offers (Build J, Q-I3):
+     *  the first of its engine-declared features that is a
+     *  plain word a person reads — letters only, sorted so the
+     *  choice is deterministic — or "" when it offers none.
+     *  Feature values that are codes or flags are skipped, not
+     *  laundered into labels. */
+    static String variantWord(Voice v) {
+        try {
+            java.util.Set<String> features = v.getFeatures();
+            if (features == null) return "";
+            java.util.List<String> words =
+                    new java.util.ArrayList<String>();
+            for (String f : features) {
+                if (f != null && f.matches("[a-zA-Z]{3,}")
+                        && !"network".equalsIgnoreCase(f)
+                        && !"local".equalsIgnoreCase(f)) {
+                    words.add(f.toLowerCase(java.util.Locale.US));
+                }
+            }
+            java.util.Collections.sort(words);
+            return words.isEmpty() ? "" : words.get(0);
+        } catch (Exception ignored) {
+            return "";
+        }
     }
 
     /** The label, composed from whatever is known: the
@@ -285,19 +363,79 @@ public final class SettingsView extends ScrollView {
         sb.append(lang != null && !lang.isEmpty() ? lang : rawName);
         if (rawName.contains("-network")) sb.append(" \u00B7 online");
         else if (rawName.contains("-local")) sb.append(" \u00B7 on device");
-        java.util.regex.Matcher code = java.util.regex.Pattern
-                .compile("-x-([a-zA-Z0-9]+)").matcher(rawName);
-        if (code.find()) {
-            sb.append(" \u00B7 ").append(code.group(1).toUpperCase(java.util.Locale.US));
-        }
+        /* Build J (Q-I3 — Wright's I-4 acceptance SUPERSEDED by
+           two seats): the variant CODE no longer stands here.
+           Through Build I the label ended "\u00B7 ARC" / "\u00B7 SQM" —
+           three letters that mean nothing to the person choosing
+           the voice that will read to them, riding on a primary
+           surface. Same-name rows are told apart by a WORD
+           instead, assigned where the whole list is known
+           (disambiguatedLabel, called from setVoices): the
+           engine's own feature word when it offers distinct
+           ones, ordinal words ("voice two") when it does not.
+           The code itself lives only behind Details. */
         return sb.toString();
+    }
+
+    private static final String[] ORDINAL_WORDS = {
+            "one", "two", "three", "four", "five", "six", "seven",
+            "eight", "nine", "ten", "eleven", "twelve"};
+
+    /** Tell same-label voices apart in words (Build J, Q-I3).
+     *  A label shared by one voice stands untouched. A label
+     *  shared by several gets a suffix on EVERY row of the
+     *  group — the engine's feature word when the group's words
+     *  are all present and distinct, ordinal words otherwise —
+     *  so no two rows in the picker ever read identically and
+     *  no row carries a code. */
+    static List<VoiceInfo> disambiguated(List<VoiceInfo> infos) {
+        java.util.Map<String, java.util.List<Integer>> byLabel =
+                new java.util.LinkedHashMap<String, java.util.List<Integer>>();
+        for (int i = 0; i < infos.size(); i++) {
+            java.util.List<Integer> group = byLabel.get(infos.get(i).label);
+            if (group == null) {
+                group = new java.util.ArrayList<Integer>();
+                byLabel.put(infos.get(i).label, group);
+            }
+            group.add(i);
+        }
+        List<VoiceInfo> out = new java.util.ArrayList<VoiceInfo>(infos);
+        for (java.util.List<Integer> group : byLabel.values()) {
+            if (group.size() < 2) continue;
+            boolean wordsWork = true;
+            java.util.Set<String> seen = new java.util.HashSet<String>();
+            for (int idx : group) {
+                String w = infos.get(idx).variant;
+                if (w.isEmpty() || !seen.add(w)) { wordsWork = false; break; }
+            }
+            for (int pos = 0; pos < group.size(); pos++) {
+                VoiceInfo info = infos.get(group.get(pos));
+                String suffix;
+                if (wordsWork) {
+                    String w = info.variant;
+                    suffix = " \u00B7 " + Character.toUpperCase(w.charAt(0))
+                            + w.substring(1);
+                } else {
+                    suffix = " \u00B7 voice " + (pos < ORDINAL_WORDS.length
+                            ? ORDINAL_WORDS[pos]
+                            : String.valueOf(pos + 1));
+                }
+                out.set(group.get(pos), info.withLabel(info.label + suffix));
+            }
+        }
+        return out;
     }
 
     private List<VoiceInfo> voiceInfos;
     private String currentVoice = "";
 
     public void setVoices(List<VoiceInfo> infos, String current) {
-        voiceInfos = infos;
+        /* Build J (Q-I3): labels are finalized HERE, where the
+           whole list is known — same-name voices receive their
+           word distinguishers before any surface renders them,
+           so the picker, the current-voice line and the filter
+           all speak the same labels. */
+        voiceInfos = infos == null ? null : disambiguated(infos);
         currentVoice = current == null ? "" : current;
         renderVoiceState();
     }
@@ -359,6 +497,26 @@ public final class SettingsView extends ScrollView {
        have \u2014 so the nothing-leaves-the-device claim never
        stands unqualified beside them. A name filter stands
        over the list: type, and the rows narrow to matches. */
+    /* Build J (Q-I1): the picker's ONE designed surface. Through
+       Build I the dialog was built on the ambient context: its
+       ground came from the device theme (dark grey whenever the
+       ambient theme went dark) while the row texts were pinned
+       dark in code — dark navy names and dark green "Details"
+       on a dark ground, the hardest text in the app to read,
+       on the very list a user picks a reading voice from (the
+       QUALITY seat's bar-holding finding). The dialog now
+       carries its surface WITH it: a pinned light dialog theme
+       wraps the builder (title, hint, buttons and ground all
+       take the one light design), and every element the rows
+       are made of pins its own colours on an opaque white
+       ground. Ambient night mode can change nothing here —
+       dark-on-dark is impossible by construction, in both
+       themes, on any device. */
+    private android.content.Context pickerTheme() {
+        return new android.content.ContextThemeWrapper(getContext(),
+                android.R.style.Theme_Material_Light_Dialog);
+    }
+
     private void voiceDialog() {
         if (voiceInfos == null || voiceInfos.isEmpty()) {
             note("No voices were found on this device yet \u2014 the "
@@ -369,9 +527,12 @@ public final class SettingsView extends ScrollView {
         LinearLayout box = new LinearLayout(getContext());
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(dp(16), dp(8), dp(16), 0);
+        box.setBackgroundColor(0xFFFFFFFF);
         final EditText search = new EditText(getContext());
         search.setHint("Type to filter by name");
         search.setSingleLine(true);
+        search.setTextColor(0xFF10243E);
+        search.setHintTextColor(0xFF5A6B7F);
         box.addView(search);
         final TextView noMatch = new TextView(getContext());
         noMatch.setTextSize(13.5f);
@@ -382,6 +543,7 @@ public final class SettingsView extends ScrollView {
         ListView list = new ListView(getContext());
         list.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(320)));
+        list.setBackgroundColor(0xFFFFFFFF);
         box.addView(list);
         final java.util.List<VoiceInfo> shown =
                 new java.util.ArrayList<VoiceInfo>(voiceInfos);
@@ -406,6 +568,12 @@ public final class SettingsView extends ScrollView {
                     row.setOrientation(LinearLayout.HORIZONTAL);
                     row.setGravity(android.view.Gravity.CENTER_VERTICAL);
                     row.setPadding(dp(20), dp(10), dp(8), dp(10));
+                    /* Build J (Q-I1): every row carries its own
+                       opaque ground — a recycled row can never
+                       show the dialog's theme ground through,
+                       and the pinned dark texts always stand on
+                       the white they were designed for. */
+                    row.setBackgroundColor(0xFFFFFFFF);
                     LinearLayout texts = new LinearLayout(getContext());
                     texts.setOrientation(LinearLayout.VERTICAL);
                     primary = new TextView(getContext());
@@ -473,7 +641,7 @@ public final class SettingsView extends ScrollView {
                 }
             }
         });
-        holder[0] = new AlertDialog.Builder(getContext())
+        holder[0] = new AlertDialog.Builder(pickerTheme())
                 .setTitle("Choose a voice")
                 .setView(box)
                 .setNegativeButton("Cancel", null)
@@ -493,7 +661,7 @@ public final class SettingsView extends ScrollView {
                     : "This voice runs on this device \u2014 "
                       + "the reading stays on the device; "
                       + "nothing is sent anywhere to speak it.");
-        new AlertDialog.Builder(getContext())
+        new AlertDialog.Builder(pickerTheme())
                 .setTitle(info.label)
                 .setMessage(body)
                 .setPositiveButton("OK", null)
@@ -589,13 +757,37 @@ public final class SettingsView extends ScrollView {
         body.addView(sectionTitle("Help & About"));
         SelfModel.Ctx ctx = new SelfModel.Ctx();
         ctx.unlocked = shell.licence().isUnlocked();
+        /* Build J (Q-I4): the explanations get HEADS. Through
+           Build I the five SelfModel answers stood as one
+           unbroken wall of prose in a single typeface and
+           weight — the flattest surface in the app, and the
+           one a confused user reads hardest. Each answer now
+           stands under its own bold sub-heading with air
+           around it; the words themselves are untouched (they
+           are the same answers Talk speaks, and the surfaces
+           must never drift apart). */
+        body.addView(helpHeading("What DogEar is"));
         body.addView(bodyText(SelfModel.answerFor("identity", ctx)));
+        body.addView(helpHeading("The controls"));
         body.addView(bodyText(SelfModel.answerFor("controls", ctx)));
+        body.addView(helpHeading("Talk \u2014 two-way voice"));
         body.addView(bodyText(SelfModel.answerFor("talk", ctx)));
+        body.addView(helpHeading("The plan"));
         body.addView(bodyText(SelfModel.answerFor("plan", ctx)));
+        body.addView(helpHeading("The limits"));
         body.addView(bodyText(SelfModel.answerFor("limits", ctx)));
         body.addView(bodyText("DogEar is made by 2351485 ALBERTA INC. "
                 + "(AIMLDS), Alberta, Canada."));
+    }
+
+    private TextView helpHeading(String s) {
+        TextView tv = new TextView(getContext());
+        tv.setText(s);
+        tv.setTextSize(14.5f);
+        tv.setTypeface(null, Typeface.BOLD);
+        tv.setTextColor(0xFF10243E);
+        tv.setPadding(0, dp(12), 0, dp(2));
+        return tv;
     }
 
     // ----------------------------------------------------------

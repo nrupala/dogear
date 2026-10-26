@@ -19,11 +19,23 @@ import java.util.List;
  *   - an "end" event for the awaited chunk feeds the next one;
  *   - pause/stop halt feeding (the core drives the voice itself
  *     for those verbs);
- *   - resume trusts the service's retained chunk (it re-speaks
- *     it; the feeder awaits its events) — except after a Talk
- *     announcement, where the retained chunk is the answer's
- *     last piece and resumeAfterAnnouncement() re-feeds the
- *     document chunk to flush it.
+ *   - resume RE-FEEDS the held chunk from the feeder itself
+ *     (Build J, defect D-18 — see onControl). Through Build I
+ *     resume merely TRUSTED the service's retained chunk: the
+ *     feeder issued no speak of its own and only awaited the
+ *     retained utterance's events. But the feeder's advance is
+ *     driven solely by utterance END events, and a pause inside
+ *     the window before that end destroys the utterance — and
+ *     its end event — while the next resume restarts the chunk
+ *     from its beginning. Under any pause/resume cycle shorter
+ *     than the chunk's spoken length the end event therefore
+ *     never fires: snapshots flipped perfectly while speech
+ *     never advanced and no feed was ever issued (the TESTER
+ *     seat's strip series: 0/10 cycles, the chunk frozen for
+ *     ~87 s). A resume the state calls playing must be backed
+ *     by a feed THIS feeder issued — the same feeder-owned
+ *     re-feed resumeAfterAnnouncement() already used, now the
+ *     one resume path for every source.
  *
  * Utterance ids are the service's integer space: the feeder's id
  * for a chunk is its chunk index.
@@ -43,10 +55,21 @@ public final class NativeFeeder {
     private static final long START_WINDOW_MS = 4000;
     private static final long GUARD_TICK_MS = 1000;
 
+    /** The guard's clock (Build J): the feeder schedules its
+     *  one-second guard tick through this seam — a Handler in
+     *  production, a manual clock in the JVM tests, where
+     *  android.os.Handler cannot run. The seam exists so the
+     *  D-18 regression test can drive the feeder's real code,
+     *  not a copy of it. */
+    interface GuardClock {
+        void schedule(Runnable r, long delayMs);
+        void cancel(Runnable r);
+    }
+
     private final PlayerCore core;
     private final DocumentStore docs;
     private final IntSpeaker speaker;
-    private final Handler handler;
+    private final GuardClock guardClock;
     private final Diagnostics diag;
     private final DefectSink defects;
 
@@ -67,12 +90,27 @@ public final class NativeFeeder {
     };
 
     public NativeFeeder(PlayerCore core, DocumentStore docs,
-                        IntSpeaker speaker, Handler handler,
+                        IntSpeaker speaker, final Handler handler,
                         Diagnostics diag, DefectSink defects) {
+        this(core, docs, speaker, new GuardClock() {
+            @Override public void schedule(Runnable r, long delayMs) {
+                handler.postDelayed(r, delayMs);
+            }
+            @Override public void cancel(Runnable r) {
+                handler.removeCallbacks(r);
+            }
+        }, diag, defects);
+    }
+
+    /** Test seam (Build J): the same feeder, driven by a manual
+     *  guard clock on the JVM. */
+    NativeFeeder(PlayerCore core, DocumentStore docs,
+                 IntSpeaker speaker, GuardClock guardClock,
+                 Diagnostics diag, DefectSink defects) {
         this.core = core;
         this.docs = docs;
         this.speaker = speaker;
-        this.handler = handler;
+        this.guardClock = guardClock;
         this.diag = diag;
         this.defects = defects;
     }
@@ -90,7 +128,19 @@ public final class NativeFeeder {
         if ("play".equals(action)) {
             startFromSnapshotLocked();
         } else if ("resume".equals(action)) {
-            resumeHeldLocked();
+            /* Build J (D-18): resume is a FEED, issued by the
+               feeder itself at the snapshot's chunk — never a
+               trust fall on the service's retained chunk (the
+               class doc carries the mechanism). The core's
+               resumeVoice still re-speaks the service's retained
+               piece on its own path; the feeder's speak carries
+               the same chunk id and flushes it (QUEUE_FLUSH), so
+               exactly one utterance sounds and its events are
+               the feeder's own. After ANY pause/resume
+               interleaving, a resume the state calls playing is
+               backed by a feed in the record — there is no
+               window in which a pause can orphan the voice. */
+            startFromSnapshotLocked();
         } else if ("pause".equals(action) || "stop".equals(action)) {
             haltLocked();
         } else if ("next".equals(action)) {
@@ -142,33 +192,6 @@ public final class NativeFeeder {
         armGuardLocked();
     }
 
-    private void resumeHeldLocked() {
-        JSONObject snap = core.snapshot();
-        String doc = snap.isNull("docId") ? "" : snap.optString("docId", "");
-        if (doc.isEmpty()) {
-            haltLocked();
-            return;
-        }
-        if (!doc.equals(docId) || chunks == null) {
-            docId = doc;
-            chunks = docs.chunksOf(doc);
-        }
-        if (chunks == null || chunks.isEmpty()) {
-            haltLocked();
-            return;
-        }
-        int idx = Math.max(0, Math.min(snap.optInt("chunk", 0),
-                chunks.size() - 1));
-        active = true;
-        // The service re-speaks its retained chunk (the pause
-        // contract); await ITS events for that chunk.
-        awaitingIdx = idx;
-        awaitingSpoke = false;
-        attempts = 0;
-        deadlineMs = System.currentTimeMillis() + START_WINDOW_MS;
-        armGuardLocked();
-    }
-
     private void skipLocked(int delta) {
         if (!active || chunks == null || awaitingIdx < 0) return;
         int target = Math.max(0, Math.min(awaitingIdx + delta,
@@ -187,12 +210,12 @@ public final class NativeFeeder {
     private void haltLocked() {
         active = false;
         awaitingIdx = -1;
-        handler.removeCallbacks(guard);
+        guardClock.cancel(guard);
     }
 
     private void armGuardLocked() {
-        handler.removeCallbacks(guard);
-        handler.postDelayed(guard, GUARD_TICK_MS);
+        guardClock.cancel(guard);
+        guardClock.schedule(guard, GUARD_TICK_MS);
     }
 
     // ----------------------------------------------------------
@@ -266,7 +289,7 @@ public final class NativeFeeder {
                 }
             }
         }
-        if (active) handler.postDelayed(guard, GUARD_TICK_MS);
+        if (active) guardClock.schedule(guard, GUARD_TICK_MS);
     }
 
     private void feedLocked(int idx) {

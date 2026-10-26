@@ -1147,6 +1147,13 @@ public final class MainActivity extends Activity
             }
             listenView.renderState(snapshot);
             renderStrip(snapshot);
+            /* Build J (I-U2): an open Marks sheet's Save place
+               control names its target part — keep that name
+               live with the reading. Label-only; the sheet's
+               list is refreshed on the marks event below. */
+            if (marksSheet != null && marksSheet.isShowing()) {
+                marksSheet.syncSavePlaceLabel();
+            }
         }
 
         @Override
