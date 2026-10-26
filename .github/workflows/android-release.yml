@@ -49,6 +49,15 @@ jobs:
             --out app/src/main/assets/web \
             --from-live https://app.getdogear.app
 
+      # JVM unit tests (redesign: Chunker fixture parity with the
+      # pinned engine, self-model routing, failure-speech census,
+      # document store + marks cascade, PlayerCore suite). A red
+      # suite fails the run before anything is signed.
+      - name: Run JVM unit tests
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testReleaseUnitTest --no-daemon
+
       - name: Restore release keystore from secrets
         env:
           KEYSTORE_B64: ${{ secrets.DOGEAR_KEYSTORE_BASE64 }}

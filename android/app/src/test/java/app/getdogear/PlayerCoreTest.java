@@ -78,6 +78,24 @@ public class PlayerCoreTest {
     private MarksStore store;
     private RecordingListener listener;
     private PlayerCore core;
+    private TestPoster poster;
+
+    /** Immediate poster with a manually-fired delayed queue —
+     *  Build G's gate watchdog arms through postDelayed, and
+     *  tests decide when (and whether) it fires. */
+    static final class TestPoster implements PlayerCore.Poster {
+        final java.util.List<Runnable> delayed = new ArrayList<Runnable>();
+        @Override public void post(Runnable r) { r.run(); }
+        @Override public void postDelayed(Runnable r, long delayMs) {
+            delayed.add(r);
+        }
+        void fireDelayed() {
+            java.util.List<Runnable> due =
+                    new java.util.ArrayList<Runnable>(delayed);
+            delayed.clear();
+            for (Runnable r : due) r.run();
+        }
+    }
 
     @Before
     public void setUp() {
@@ -87,10 +105,8 @@ public class PlayerCoreTest {
         storage = new MemoryStorage();
         store = new MarksStore(storage);
         listener = new RecordingListener();
-        core = new PlayerCore(store, capture,
-                new PlayerCore.Poster() {
-                    @Override public void post(Runnable r) { r.run(); }
-                },
+        poster = new TestPoster();
+        core = new PlayerCore(store, capture, poster,
                 new PlayerCore.Clock() {
                     @Override public long nowMs() { return 1700000000000L; }
                 });
@@ -100,6 +116,57 @@ public class PlayerCoreTest {
     }
 
     private void speakChunk(int i, int n) { core.utteranceSpoke(i, n); }
+
+    @Test
+    public void newSessionDoesNotInheritPlaying() {
+        // Exercise D-2 (2026-10-24): switching documents mid-
+        // utterance left the old session's PLAYING standing, the
+        // host's play() no-opped, and the new document never fed
+        // — the bar claimed playing over silence. A new session
+        // starts STOPPED; its first spoken chunk raises PLAYING.
+        speakChunk(2, 10);
+        assertEquals(PlayerCore.Playback.PLAYING, core.playback());
+        core.sessionStarted("doc2", "Second Document", 0, 5);
+        assertEquals(PlayerCore.Playback.STOPPED, core.playback());
+        core.play(PlayerCore.Source.BAR);
+        assertEquals(1, listener.controls("play").size());
+    }
+
+    @Test
+    public void removingOpenDocumentPurgesPlaceBehindQueuedSaves() {
+        // Exercise D-3 (2026-10-25): removing the OPEN, playing
+        // document left its position in the marks store \u2014 stop()
+        // persists the place from inside the poster queue, so a
+        // purge issued synchronously by the host was undone when
+        // the queued save landed after it. The forget must run
+        // inside the queue, behind the saves it has to outlast.
+        final java.util.ArrayDeque<Runnable> queue =
+                new java.util.ArrayDeque<Runnable>();
+        PlayerCore q = new PlayerCore(store, capture,
+                new PlayerCore.Poster() {
+                    @Override public void post(Runnable r) { queue.add(r); }
+                    @Override public void postDelayed(Runnable r, long delayMs) {
+                        queue.add(r);
+                    }
+                },
+                new PlayerCore.Clock() {
+                    @Override public long nowMs() { return 1700000000000L; }
+                });
+        q.attachSpeech(speech);
+        q.setListener(listener);
+        q.sessionStarted("docX", "Doomed Document", 0, 10);
+        while (!queue.isEmpty()) queue.poll().run();
+        q.utteranceSpoke(4, 10);
+        while (!queue.isEmpty()) queue.poll().run();
+        assertTrue(store.positionFor("docX") != null);
+        // The host's removal order: stop, then the forget \u2014 with
+        // NO synchronous purge in between.
+        q.stop(PlayerCore.Source.BAR);
+        q.sessionEndedForget("docX");
+        while (!queue.isEmpty()) queue.poll().run();
+        assertTrue(store.positionFor("docX") == null);
+        assertFalse(store.hasAnyPosition());
+    }
 
     @Test
     public void pauseIsIdempotentAndEchoesOnceToThePage() {
@@ -170,6 +237,144 @@ public class PlayerCoreTest {
         // The page's reader is parked too (its held chunk is the
         // resume point for the post-capture flow).
         assertEquals(1, listener.controls("pause").size());
+    }
+
+    @Test
+    public void toggleDecidesFromCurrentTruthNotSurfaceCache() {
+        // Build F (U-1): the bar used to decide pause-vs-resume
+        // from its own cached rendering and call that verb; a
+        // press against a stale render called a verb that
+        // no-ops silently (resume while playing emits nothing),
+        // so the press vanished \u2014 the seat's "pause did not
+        // hold". The toggle decides inside the queue from the
+        // machine's current state: every press lands.
+        speakChunk(2, 30); // PLAYING
+        core.togglePlayPause(PlayerCore.Source.BAR);
+        assertEquals(PlayerCore.Playback.PAUSED, core.playback());
+        assertEquals(1, speech.pauses);
+        core.togglePlayPause(PlayerCore.Source.BAR);
+        assertEquals(PlayerCore.Playback.PLAYING, core.playback());
+        assertEquals(1, speech.resumes);
+        // A press that arrives after the state moved on (the
+        // chunk advanced between render and press) still acts
+        // on the state as it IS, never as it was rendered.
+        core.togglePlayPause(PlayerCore.Source.BAR);
+        assertEquals(PlayerCore.Playback.PAUSED, core.playback());
+        assertEquals(2, speech.pauses);
+    }
+
+    static final class FakeGate implements PlayerCore.TalkGate {
+        String blockClass;   // non-null: blocked with this class
+        boolean hold;        // hold the verdict until released
+        boolean throwInCheck;
+        Callback held;
+        int checks;
+        @Override public void check(Callback cb) {
+            checks++;
+            if (throwInCheck) throw new RuntimeException("gate blew up");
+            if (hold) { held = cb; return; }
+            if (blockClass != null) cb.blocked(blockClass);
+            else cb.proceed();
+        }
+    }
+
+    @Test
+    public void talkGateThatNeverAnswersFallsBackToCapture() {
+        // Build G (defect D-5): on the Build F bench a Talk
+        // press was observed silenced and never resolved — the
+        // gate's verdict never landed and the press hung with
+        // playback parked. The core now carries its own
+        // watchdog: an unanswered gate resolves as a proceed
+        // (the post-capture path speaks its classes honestly)
+        // instead of stranding the press.
+        FakeGate gate = new FakeGate();
+        gate.hold = true; // never released
+        core.setTalkGate(gate);
+        speakChunk(2, 30); // PLAYING
+        core.talkStart(PlayerCore.Source.BAR);
+        assertEquals(1, gate.checks);
+        assertEquals(0, capture.starts);
+        assertEquals(PlayerCore.Voice.IDLE, core.voice());
+        poster.fireDelayed(); // the watchdog fires
+        assertEquals(1, capture.starts);
+        assertEquals(PlayerCore.Voice.LISTENING, core.voice());
+        // A verdict arriving after the watchdog is ignored.
+        gate.held.proceed();
+        assertEquals(1, capture.starts);
+    }
+
+    @Test
+    public void talkGateThatThrowsFallsBackToCapture() {
+        // Build G (D-5): a gate that throws while being asked
+        // has given no verdict; the press must proceed, not
+        // die inside the gate call.
+        FakeGate gate = new FakeGate();
+        gate.throwInCheck = true;
+        core.setTalkGate(gate);
+        speakChunk(2, 30);
+        core.talkStart(PlayerCore.Source.BAR);
+        assertEquals(1, gate.checks);
+        assertEquals(1, capture.starts);
+        assertEquals(PlayerCore.Voice.LISTENING, core.voice());
+    }
+
+    @Test
+    public void talkGateBlocksCaptureAndSpeaksTheReasonFirst() {
+        // Build F (U-6): with no voice model installed, Talk
+        // opened the mic and listened ~20 s in silence, and the
+        // pack-absent reason was spoken only afterwards. The
+        // gate must speak the reason BEFORE any capture \u2014 and
+        // capture must never start.
+        FakeGate gate = new FakeGate();
+        gate.blockClass = "pack-absent";
+        core.setTalkGate(gate);
+        speakChunk(2, 30); // PLAYING
+        order.clear();
+        listener.pageEvents.clear();
+        core.talkStart(PlayerCore.Source.BAR);
+        assertEquals(1, gate.checks);
+        assertEquals(0, capture.starts);              // never opened
+        assertEquals(PlayerCore.Voice.IDLE, core.voice());
+        // Playback was silenced for the press, as always\u2026
+        assertEquals(1, speech.pauses);
+        // \u2026and the failure reaches the page as an audio
+        // error carrying the resume discipline (announce the
+        // reason, then resume) \u2014 before any capture existed.
+        List<JSONObject> errs = listener.eventsOfType("audioError");
+        assertEquals(1, errs.size());
+        assertEquals("pack-absent", errs.get(0).optString("class"));
+        assertTrue(errs.get(0).optBoolean("resumeAfter"));
+    }
+
+    @Test
+    public void talkGateProceedKeepsSilenceBeforeMicrophone() {
+        FakeGate gate = new FakeGate(); // proceeds
+        core.setTalkGate(gate);
+        speakChunk(2, 30);
+        order.clear();
+        core.talkStart(PlayerCore.Source.BAR);
+        assertEquals(1, capture.starts);
+        assertEquals(PlayerCore.Voice.LISTENING, core.voice());
+        assertTrue(order.indexOf("speech.pause") >= 0);
+        assertTrue(order.indexOf("capture.start") > order.indexOf("speech.pause"));
+    }
+
+    @Test
+    public void talkGateVerdictAfterCancelIsIgnored() {
+        FakeGate gate = new FakeGate();
+        gate.hold = true;
+        core.setTalkGate(gate);
+        speakChunk(2, 30); // PLAYING
+        core.talkStart(PlayerCore.Source.BAR);
+        assertEquals(PlayerCore.Playback.PAUSED, core.playback());
+        core.talkStop(); // user cancels while the gate decides
+        // The silenced playback is given back, capture never
+        // opened, and the gate's late verdict changes nothing.
+        assertEquals(PlayerCore.Playback.PLAYING, core.playback());
+        assertEquals(1, speech.resumes);
+        gate.held.proceed();
+        assertEquals(0, capture.starts);
+        assertEquals(PlayerCore.Voice.IDLE, core.voice());
     }
 
     @Test
@@ -306,11 +511,134 @@ public class PlayerCoreTest {
     }
 
     @Test
+    public void snapshotSeparatesThePinFromTheLivePosition() {
+        // Build H (D-7): the deck's Continue and its place
+        // wording turn on the DIFFERENCE between the deliberate
+        // pin and the automatic live position. With no pin,
+        // pinChunk is -1 and savedChunk falls back to the live
+        // position (the "your place" state).
+        speakChunk(5, 20);
+        JSONObject s = core.snapshot();
+        assertEquals(-1, s.optInt("pinChunk"));
+        assertEquals(5, s.optInt("savedChunk"));
+        // Pin the place, then read on: the pin stands at 5
+        // while the position advances to 9, and savedChunk
+        // keeps naming the pin.
+        core.savePlace(PlayerCore.Source.BAR);
+        speakChunk(9, 20);
+        s = core.snapshot();
+        assertEquals(5, s.optInt("pinChunk"));
+        assertEquals(5, s.optInt("savedChunk"));
+        assertEquals(9, s.optInt("chunk"));
+    }
+
+    @Test
+    public void snapshotNamesThePendingTalkGate() {
+        // Build H (D-8): while the gate decides, the snapshot
+        // says "checking" — the deck's Talk line renders from
+        // it. Once the watchdog resolves the episode, the
+        // snapshot returns to "idle".
+        FakeGate gate = new FakeGate();
+        gate.hold = true;
+        core.setTalkGate(gate);
+        speakChunk(2, 30);
+        assertEquals("idle", core.snapshot().optString("talkGate"));
+        core.talkStart(PlayerCore.Source.BAR);
+        assertEquals("checking", core.snapshot().optString("talkGate"));
+        poster.fireDelayed();
+        assertEquals("idle", core.snapshot().optString("talkGate"));
+    }
+
+    @Test
     public void storeSurvivesReload() {
         speakChunk(13, 60);
         core.addNote("persisted", PlayerCore.Source.BAR);
         MarksStore reloaded = new MarksStore(storage);
         assertEquals(13, reloaded.positionFor("doc1").optInt("chunk"));
         assertEquals(1, reloaded.marksFor("doc1").optJSONArray("notes").length());
+    }
+
+    @Test
+    public void jumpFromPausedLandsPausedAtTheTarget() {
+        // Build I (D-17, correcting D-9): a jump re-seeds the
+        // session, and a re-seed's rest state used to be
+        // STOPPED unconditionally — a paragraph jump made
+        // from PAUSED moved the place and dropped the state
+        // to stopped (TESTER L21 case 2, failed twice on
+        // Build H2). Preservation is all three states: the
+        // jump lands in the state the user was in.
+        speakChunk(9, 40);
+        core.pause(PlayerCore.Source.BAR);
+        assertEquals(PlayerCore.Playback.PAUSED, core.playback());
+        core.jumpSession("doc1", "A Document", 20, 40, true);
+        assertEquals(PlayerCore.Playback.PAUSED, core.playback());
+        assertEquals(20, core.chunk());
+        // The jumped place is the live position now — every
+        // surface's "your place" and any later resume agree.
+        assertEquals(20, store.positionFor("doc1").optInt("chunk"));
+    }
+
+    @Test
+    public void jumpFromStoppedLandsStoppedAtTheTarget() {
+        speakChunk(9, 40);
+        core.stop(PlayerCore.Source.BAR);
+        assertEquals(PlayerCore.Playback.STOPPED, core.playback());
+        core.jumpSession("doc1", "A Document", 3, 40, false);
+        assertEquals(PlayerCore.Playback.STOPPED, core.playback());
+        assertEquals(3, core.chunk());
+        assertEquals(3, store.positionFor("doc1").optInt("chunk"));
+    }
+
+    @Test
+    public void aSessionAfterAJumpStillStartsStopped() {
+        // The D-2 law is untouched by the jump verb: a NEW
+        // session (a document open) starts STOPPED, never
+        // paused-at-a-place and never playing.
+        speakChunk(1, 10);
+        core.pause(PlayerCore.Source.BAR);
+        core.jumpSession("doc1", "A Document", 4, 10, true);
+        assertEquals(PlayerCore.Playback.PAUSED, core.playback());
+        core.sessionStarted("doc2", "Second Document", 0, 5);
+        assertEquals(PlayerCore.Playback.STOPPED, core.playback());
+    }
+
+    @Test
+    public void finishingIsItsOwnStateAndKeepsThePlace() {
+        // Build I (Q-H4): the end of the book, acknowledged.
+        speakChunk(38, 40);
+        speakChunk(39, 40);
+        core.documentFinished(PlayerCore.Source.SYSTEM);
+        assertEquals(PlayerCore.Playback.FINISHED, core.playback());
+        assertEquals("finished", core.snapshot().optString("playback"));
+        assertEquals(39, store.positionFor("doc1").optInt("chunk"));
+        // A second finish signal (a late feeder event) is a
+        // no-op, and Stop does not un-finish the book.
+        core.documentFinished(PlayerCore.Source.SYSTEM);
+        core.stop(PlayerCore.Source.BAR);
+        assertEquals(PlayerCore.Playback.FINISHED, core.playback());
+        // A book the USER stopped mid-way never wears it.
+        core.jumpSession("doc1", "A Document", 3, 40, false);
+        assertEquals(PlayerCore.Playback.STOPPED, core.playback());
+        core.documentFinished(PlayerCore.Source.SYSTEM);
+        assertEquals(PlayerCore.Playback.STOPPED, core.playback());
+    }
+
+    @Test
+    public void playFromFinishedReopensAtTheStart() {
+        // Build I (Q-H4): the press the surfaces label "Read
+        // again from the start" must DO that — a continue
+        // event pinned to chunk 0 of the same document, not
+        // the bare play control that used to replay the
+        // final part.
+        speakChunk(7, 8);
+        core.documentFinished(PlayerCore.Source.SYSTEM);
+        listener.pageEvents.clear();
+        core.togglePlayPause(PlayerCore.Source.BAR);
+        java.util.List<JSONObject> cont =
+                listener.eventsOfType("continue");
+        assertEquals(1, cont.size());
+        assertEquals("doc1", cont.get(0).optString("docId"));
+        assertEquals(0, cont.get(0).optInt("chunk", -1));
+        assertEquals(0, listener.controls("play").size());
     }
 }

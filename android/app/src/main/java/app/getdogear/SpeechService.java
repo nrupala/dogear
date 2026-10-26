@@ -515,12 +515,34 @@ public class SpeechService extends Service implements PlayerCore.SpeechPort {
     // Speaking
     // ------------------------------------------------------------------
 
+    /* Redesign (native Settings voice picker): the chosen voice
+       NAME, applied to every utterance until changed. The native
+       stack previously had no per-voice selection at all — only
+       the language tag — so the picker the brief requires needs
+       this. Null = the engine's default voice. */
+    private static volatile String chosenVoiceName;
+
+    public static void setVoiceName(String name) {
+        chosenVoiceName = name;
+    }
+
     private void speakNow() {
         if (currentId == null || currentText == null) return;
         if (!ttsReady) {
             pendingSpeak = true;
             return;
         }
+        try {
+            String want = chosenVoiceName;
+            if (want != null && !want.isEmpty() && tts.getVoices() != null) {
+                for (android.speech.tts.Voice v : tts.getVoices()) {
+                    if (want.equals(v.getName())) {
+                        tts.setVoice(v);
+                        break;
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
         try {
             if (currentLang != null) {
                 Locale loc = Locale.forLanguageTag(currentLang);

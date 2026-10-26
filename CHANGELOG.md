@@ -5,6 +5,45 @@ All notable changes to dogear are documented here, in
 
 ## [Unreleased]
 
+Build I (redesign line, 2.0.0 candidate series) — the consolidated
+H2 seat findings, closed in one build:
+
+### Added
+- A document that reaches its end is acknowledged: the deck and the
+  strip read "Finished", and the primary action from Finished is
+  labelled "Read again from the start" and does exactly that.
+- The voice picker filters by name as you type, and each row's
+  Details shows the engine name and whether the voice is online.
+
+### Changed
+- Jumps preserve the exact state they were made from: playing keeps
+  playing from the new place, paused lands paused at the new place,
+  stopped lands stopped — on paragraph taps, mark rows, and every
+  other place-jump surface.
+- Voice picker rows carry human names only; the engine code lives
+  behind Details. Online voices carry the caution "Online voice —
+  reading is sent over the internet for this voice" on the row, in
+  Details, and beside the current voice in Settings.
+- The notification permission is never asked before or during the
+  first listen; it is asked after the first backgrounding during
+  playback, on return to the app.
+
+### Fixed
+- The Marks sheet's geometry is constant: its list viewport is the
+  fullest state's height from the first frame, so a save no longer
+  moves the action row.
+- Held-model rows on the Talk shelf no longer clip their reason:
+  the state line stands at full width under the model's name and
+  the card takes its natural height.
+- HTML entities decode completely before storage, display, and
+  speech — the full named set (Latin-1/accent class included) and
+  numeric references; unknown entities are left as written rather
+  than dropped.
+- No typed content is silently discarded anywhere: the paste
+  dialog's Add on an empty body keeps the dialog open with the
+  title intact and the reason stated in place; the tag, note, and
+  licence-key surfaces answer a blocked act in place the same way.
+
 ## [1.1.0] - 2026-10-24
 
 Web 1.6.0 (certified worker sha256 83293d98c8f75550...) bundled via the

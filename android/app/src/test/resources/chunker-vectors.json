@@ -1,0 +1,63 @@
+{
+ "fixtures": {
+  "short": "Hello world. This is DogEar speaking a short document for the fixture run.",
+  "questions": "What is this thing? It answers questions! Does it really work. Yes it does.",
+  "long_sentence_commas": "The committee, having considered the evidence, the testimony, the measurements, and the long record of proceedings that stretched across the winter, the spring, and the better part of the summer session, finally resolved, without dissent, to publish its findings in full.",
+  "long_sentence_spaces": "Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word.",
+  "long_word_hardcut": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx. Done.",
+  "paragraphs": "First paragraph ends here.\n\nSecond paragraph starts now and continues a little.\n\nThird one is last.",
+  "no_terminal_punct": "A passage with no ending punctuation at all",
+  "repeated": "Same line here. Same line here. A different line follows.",
+  "mixed": "Dr. Akolkar measured 3.5 volts at the terminal. The reading, taken twice, held steady. Then the motor, which had hummed all morning, stopped.",
+  "newlines_inside": "One block\nwith a newline but no blank line.\nAnd a second sentence here."
+ },
+ "expected": {
+  "short": [
+   "Hello world.",
+   "This is DogEar speaking a short document for the fixture run."
+  ],
+  "questions": [
+   "What is this thing?",
+   "It answers questions!",
+   "Does it really work.",
+   "Yes it does."
+  ],
+  "long_sentence_commas": [
+   "The committee, having considered the evidence, the testimony, the measurements, and the long record of proceedings that stretched across the winter, the spring, and the better part of the summer session, finally resolved, without dissent,",
+   "to publish its findings in full."
+  ],
+  "long_sentence_spaces": [
+   "Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word ",
+   "Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word ",
+   "Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word Word."
+  ],
+  "long_word_hardcut": [
+   "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+   "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.",
+   "Done."
+  ],
+  "paragraphs": [
+   "First paragraph ends here.",
+   "Second paragraph starts now and continues a little.",
+   "Third one is last."
+  ],
+  "no_terminal_punct": [
+   "A passage with no ending punctuation at all"
+  ],
+  "repeated": [
+   "Same line here.",
+   "Same line here.",
+   "A different line follows."
+  ],
+  "mixed": [
+   "Dr.",
+   "Akolkar measured 3.5 volts at the terminal.",
+   "The reading, taken twice, held steady.",
+   "Then the motor, which had hummed all morning, stopped."
+  ],
+  "newlines_inside": [
+   "One block with a newline but no blank line.",
+   "And a second sentence here."
+  ]
+ }
+}
