@@ -513,7 +513,7 @@ public final class SettingsView extends ScrollView {
        dark-on-dark is impossible by construction, in both
        themes, on any device. */
     private android.content.Context pickerTheme() {
-        return new android.content.ContextThemeWrapper(getContext(),
+        return new android.view.ContextThemeWrapper(getContext(),
                 android.R.style.Theme_Material_Light_Dialog);
     }
 
