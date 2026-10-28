@@ -40,4 +40,4 @@ wrapper handles them.
   `python3 tools/build-worker-block.py`.
 - Keep the embed self-contained: no libraries, no autoplay, no tracking.
 - Attribution on new public-facing work:
-  `Owned by Nrupal Akolkar · Built with Muse by Meta`.
+  `Owned by 2351485 ALBERTA INC. · Built with Muse by Meta`.

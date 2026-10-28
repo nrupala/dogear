@@ -12,7 +12,7 @@ All notable changes to dogear are documented here, in
 - `CONTRIBUTING.md`: PR-flow discipline (draft PR → tests green → owner
   merges; no direct pushes to `main`; merge commits reference PR numbers;
   releases tagged `vX.Y.Z`), signed-deploys-only policy, and test instructions.
-- `NOTICE`: attribution file ("Owned by Nrupal Akolkar · Built with Muse by Meta").
+- `NOTICE`: attribution file ("Owned by 2351485 ALBERTA INC. · Built with Muse by Meta").
 
 ### Changed
 - `tools/deploy-worker.py`: now DELEGATES to the site-integrity signed-deploy
