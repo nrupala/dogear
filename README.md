@@ -7,6 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 # dogear
 
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16396/badge)](https://www.bestpractices.dev/en/projects/16396)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/nrupala/dogear/badge)](https://scorecard.dev/viewer/?uri=github.com/nrupala/dogear)
+[![REUSE status](https://api.reuse.software/badge/github.com/nrupala/dogear)](https://api.reuse.software/info/github.com/nrupala/dogear)
 
 **Document in, place kept, resume anywhere.**
 
