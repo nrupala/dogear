@@ -1,3 +1,7 @@
+REM SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+REM
+REM SPDX-License-Identifier: AGPL-3.0-or-later
+
 @rem
 @rem Copyright 2015 the original author or authors.
 @rem
