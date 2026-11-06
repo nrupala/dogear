@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Build the DogEar extension store zips from the one source tree.
 
 One build produces all three store packages (the owner's CI doctrine —
