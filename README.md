@@ -16,7 +16,7 @@ A read-aloud reader that remembers where you stopped. It ships in three forms fr
 one repository: an embeddable reader for web pages, browser extensions (Chrome/Edge and
 Firefox), and an Android app.
 
-Owned by [Nrupal Akolkar](https://nrupalakolkar.com) · Built with [Muse by Meta](https://muse.ai/join) · https://getdogear.app — join Muse, then redeem code **101EEK** in Settings within 48 hours of joining and we both earn tokens.
+Owned by [Nrupal Akolkar](https://nrupalakolkar.com) · Built with [Muse by Meta](https://muse.ai/join) · https://getdogear.app.
 
 ## Get started
 
