@@ -1,5 +1,7 @@
 # dogear
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16396/badge)](https://www.bestpractices.dev/en/projects/16396)
+
 **Document in, place kept, resume anywhere.**
 
 A read-aloud reader that remembers where you stopped. It ships in three forms from this
