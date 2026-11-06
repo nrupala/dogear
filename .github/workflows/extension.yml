@@ -10,12 +10,35 @@ on:
     paths:
       - 'extension/**'
       - '.github/workflows/extension.yml'
+      - 'package.json'
+      - 'eslint.config.mjs'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  lint:
+    name: Lint (extension JS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # ESLint flat config lives at the repo root, outside the shipped
+      # extension/ payload (extension/tools/build.py packages extension/
+      # only). It gates the extension scripts + smoke test on core
+      # correctness rules (no-undef, no-unreachable, ...). See the
+      # calibration notes in eslint.config.mjs.
+      - name: Install lint tooling
+        run: npm install --no-audit --no-fund
+
+      - name: Lint the extension surface
+        run: npm run lint
+
   build:
     runs-on: ubuntu-latest
     steps:

@@ -1,0 +1,14 @@
+{
+  "name": "dogear-lint",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Lint tooling for the DogEar extension surface (not shipped; the store zips are built from extension/ by extension/tools/build.py).",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint extension/background.js extension/content.js extension/popup.js extension/vendor/reader-core/reader-core.js extension/tests/smoke.test.mjs"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0"
+  }
+}
