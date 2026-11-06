@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Deploy a module Worker to Cloudflare — SIGNED ONLY.
 
 Standing rule (2026-10-05): every deploy goes through the site-integrity
