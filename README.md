@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # dogear
 
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16396/badge)](https://www.bestpractices.dev/en/projects/16396)
