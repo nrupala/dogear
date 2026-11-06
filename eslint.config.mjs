@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import globals from "globals";
 
 // DogEar lint gate — flat config at the repo root (outside the shipped
