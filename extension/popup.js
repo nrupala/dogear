@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /* DogEar extension — popup logic.
  * Buttons ask the background worker to run a command on the active tab;
  * the meter is read from the extension's own storage; the voice list is
