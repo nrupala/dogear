@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /* dogear reader v1.0.7 — Document in, place kept, resume anywhere.
    Owned by 2351485 ALBERTA INC. (https://nrupalakolkar.com) · Built with Muse by Meta (https://muse.ai/join) · https://getdogear.app — join Muse, then redeem code 101EEK in Settings within 48 hours of joining and we both earn tokens.
    Self-contained embed: drop this file in a <script> tag (or inline it), then put
