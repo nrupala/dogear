@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Verify the DogEar extension tree (and, with --zips, the built zips).
 
 Checks, all hard failures:
