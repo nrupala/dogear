@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Smoke test for reader/dogear.js with a stub DOM.
 const fs = require('fs');
 const src = fs.readFileSync(__dirname + '/reader/dogear.js', 'utf8');
