@@ -72,12 +72,26 @@
   var sessionPlaceKey = null; // localStorage key of the reader's place record
 
   var fakeVoice = {
-    name: 'Device voice',
+    name: 'DogEar voice',
     lang: String(navigator.language || 'en-US').replace('_', '-'),
     localService: true,
     default: true,
     voiceURI: 'dogear:device',
   };
+
+  /* Voice selection (1.7.0): when the shell offers it, the
+     utterance's voice token rides along with every dispatch —
+     re-dispatches included — so a stall recovery never drops
+     the listener's chosen voice. Older shells keep the 4-arg
+     path exactly as before. */
+  function nativeSpeak(id, text, rate, lang, voiceURI) {
+    if (voiceURI && typeof NATIVE.hasVoiceSelection === 'function' &&
+        NATIVE.hasVoiceSelection()) {
+      NATIVE.speak(id, text, rate, lang, voiceURI);
+    } else {
+      NATIVE.speak(id, text, rate, lang);
+    }
+  }
 
   function fireEnd(rec) {
     if (rec && rec.utt && typeof rec.utt.onend === 'function') {
@@ -148,7 +162,7 @@
     if (!rec.retried) {
       rec.retried = true;
       try { NATIVE.stopPlayback(); } catch (e) {}
-      try { NATIVE.speak(rec.id, rec.text, rec.rate, rec.lang); }
+      try { nativeSpeak(rec.id, rec.text, rec.rate, rec.lang, rec.voiceURI); }
       catch (e) { declareStalled(rec); return; }
       armStall(rec);
       return;
@@ -181,7 +195,7 @@
     current = rec;
     pausedFlag = false;
     reportPlace(rec);
-    try { NATIVE.speak(rec.id, rec.text, rec.rate, rec.lang); }
+    try { nativeSpeak(rec.id, rec.text, rec.rate, rec.lang, rec.voiceURI); }
     catch (e) {
       current = null;
       fireError(rec);
@@ -225,7 +239,33 @@
   }
 
   var shim = {
-    getVoices: function () { return [fakeVoice]; },
+    getVoices: function () {
+      var out = [fakeVoice];
+      /* 1.7.0: the shell's own enumeration of the default TTS
+         engine's voices rides along, each addressable as
+         'android:<engine>:<voice name>'. Engines beyond the
+         default are offered at engine level by the app picker
+         (getTtsEnginesJson) — a WebView cannot enumerate a
+         non-default engine's voices without binding it, which
+         the shell does when such a voice is chosen. */
+      try {
+        if (typeof NATIVE.getTtsVoicesJson === 'function') {
+          var arr = JSON.parse(NATIVE.getTtsVoicesJson() || '[]');
+          (arr || []).forEach(function (v) {
+            if (v && v.name) {
+              out.push({
+                name: v.name,
+                lang: String(v.lang || fakeVoice.lang).replace('_', '-'),
+                localService: true,
+                default: false,
+                voiceURI: 'android:' + (v.engine || '') + ':' + v.name,
+              });
+            }
+          });
+        }
+      } catch (e) {}
+      return out;
+    },
     speak: function (utt) {
       var rec = {
         id: nextId++,
@@ -233,6 +273,7 @@
         text: String((utt && utt.text) || ''),
         rate: (utt && utt.rate) || 1,
         lang: (utt && utt.voice && utt.voice.lang) || fakeVoice.lang,
+        voiceURI: (utt && utt.voice && utt.voice.voiceURI) || null,
         started: false,
         retried: false,
       };
@@ -298,8 +339,18 @@
     var ev = null;
     try { ev = JSON.parse(json); } catch (e) { return; }
     if (!ev) return;
-    if (ev.t === 'start') {
-      if (current && ev.id === current.id) current.started = true;
+    if (ev.t === 'voices') {
+      /* The shell finished enumerating TTS voices (1.7.0):
+         tell voice consumers the list changed. */
+      if (typeof voicesChangedHandler === 'function') {
+        try { voicesChangedHandler(); } catch (e) {}
+      }
+      voicesListeners.slice().forEach(function (fn) {
+        try { fn(); } catch (e) {}
+      });
+      return;
+    }
+    if (ev.t === 'start') {      if (current && ev.id === current.id) current.started = true;
       else if (!current && lastRetired && ev.id === lastRetired.id) {
         /* Re-adoption (1.1.0): the service re-sounded its held
            chunk for a boundary resume. The record lives again so
@@ -358,7 +409,7 @@
     var r = current; r.started = false; r.retried = false;
     disarmStall();
     try { NATIVE.skipCurrent(); } catch (e) {}
-    try { NATIVE.speak(r.id, r.text, r.rate, r.lang); } catch (e) { fireError(r); return; }
+    try { nativeSpeak(r.id, r.text, r.rate, r.lang, r.voiceURI); } catch (e) { fireError(r); return; }
     armStall(r);
   }
 

@@ -59,6 +59,13 @@
     
 
     
+    <!-- Package visibility (Android 11+): the voice picker
+         enumerates the phone's speech engines. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
 
     <application
         android:name="Application"

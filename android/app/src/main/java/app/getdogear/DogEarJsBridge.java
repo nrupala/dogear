@@ -3,12 +3,19 @@ package app.getdogear;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.speech.tts.TextToSpeech;
 import android.webkit.JavascriptInterface;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.lang.ref.WeakReference;
+import java.util.List;
 
 /**
  * The page-side half of the DogEar native bridge. Exposed to the
@@ -124,6 +131,66 @@ public class DogEarJsBridge {
         } else {
             SpeechService.speak(appContext, id, text, (float) rate, lang);
         }
+    }
+
+    /** Voice-carrying speak (1.7.0): the page's chosen voice
+     *  token rides along (grammar in SpeechService). The bridge
+     *  JS uses this overload only when hasVoiceSelection()
+     *  answers true; older pages keep the 4-arg path. */
+    @JavascriptInterface
+    public void speak(int id, String text, double rate, String lang, String voiceSpec) {
+        SpeechService a = SpeechService.active();
+        if (a != null) {
+            a.speakChunk(id, text, (float) rate, lang, voiceSpec);
+        } else {
+            SpeechService.speak(appContext, id, text, (float) rate, lang, voiceSpec);
+        }
+    }
+
+    @JavascriptInterface
+    public boolean hasVoiceSelection() {
+        return true;
+    }
+
+    /** Whether this phone offers acoustic echo cancellation
+     *  (the duplex floor, 1.7.0): the page's duplex listening
+     *  engages only where cancellation exists. */
+    @JavascriptInterface
+    public boolean hasEchoCanceler() {
+        return VoiceCapture.echoCancelerAvailable();
+    }
+
+    /** The speech engines installed on this phone (Google,
+     *  Samsung, and any other), for the page's voice picker. */
+    @JavascriptInterface
+    public String getTtsEnginesJson() {
+        try {
+            PackageManager pm = appContext.getPackageManager();
+            List<ResolveInfo> infos = pm.queryIntentServices(
+                    new Intent(TextToSpeech.Engine.INTENT_ACTION_TTS_SERVICE), 0);
+            JSONArray arr = new JSONArray();
+            if (infos != null) {
+                for (ResolveInfo ri : infos) {
+                    if (ri == null || ri.serviceInfo == null) continue;
+                    JSONObject o = new JSONObject();
+                    o.put("package", ri.serviceInfo.packageName);
+                    CharSequence label = ri.loadLabel(pm);
+                    o.put("label", label != null
+                            ? label.toString() : ri.serviceInfo.packageName);
+                    arr.put(o);
+                }
+            }
+            return arr.toString();
+        } catch (Exception e) {
+            return "[]";
+        }
+    }
+
+    /** The voices of the phone's default speech engine
+     *  (cached probe in the speech service). */
+    @JavascriptInterface
+    public String getTtsVoicesJson() {
+        return SpeechService.enumerateVoicesJson(appContext);
     }
 
     @JavascriptInterface

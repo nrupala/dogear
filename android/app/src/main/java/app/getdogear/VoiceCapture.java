@@ -6,6 +6,7 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
+import android.media.audiofx.AcousticEchoCanceler;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,7 +40,18 @@ public final class VoiceCapture implements PlayerCore.CapturePort {
     private final Context appContext;
     private volatile boolean capturing = false;
     private volatile AudioRecord recorder;
+    private volatile AcousticEchoCanceler echoCanceler;
+    private volatile boolean aecActive = false;
     private Thread thread;
+
+    /** Whether this device offers acoustic echo cancellation
+        at all (the duplex capability floor, 1.7.0). */
+    public static boolean echoCancelerAvailable() {
+        return AcousticEchoCanceler.isAvailable();
+    }
+
+    /** Whether AEC is engaged on the live capture session. */
+    public boolean aecActive() { return aecActive; }
 
     public VoiceCapture(Context ctx) {
         this.appContext = ctx.getApplicationContext();
@@ -102,6 +114,23 @@ public final class VoiceCapture implements PlayerCore.CapturePort {
                 throw new IllegalStateException("recorder not initialized");
             }
             recorder = rec;
+            // Duplex groundwork (1.7.0): where the device offers
+            // acoustic echo cancellation, engage it on this
+            // capture session, so a microphone opened close to
+            // speech never hears DogEar itself. Availability is
+            // the gate; without AEC nothing changes — the native
+            // capture stays turn-based exactly as proven.
+            if (AcousticEchoCanceler.isAvailable()) {
+                try {
+                    AcousticEchoCanceler aec = AcousticEchoCanceler.create(
+                            rec.getAudioSessionId());
+                    if (aec != null) {
+                        aec.setEnabled(true);
+                        echoCanceler = aec;
+                        aecActive = aec.getEnabled();
+                    }
+                } catch (Exception ignored) {}
+            }
             if (am != null) {
                 try {
                     previousMode = am.getMode();
@@ -147,6 +176,11 @@ public final class VoiceCapture implements PlayerCore.CapturePort {
                 try { rec.stop(); } catch (Exception ignored) {}
                 try { rec.release(); } catch (Exception ignored) {}
             }
+            if (echoCanceler != null) {
+                try { echoCanceler.release(); } catch (Exception ignored) {}
+                echoCanceler = null;
+            }
+            aecActive = false;
         }
         if (error != null) {
             cb.onCaptureError(error);

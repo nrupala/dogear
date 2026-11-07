@@ -1,0 +1,63 @@
+name: Extension
+
+# The DogEar browser extension is built HERE, in CI, from the one source
+# tree in extension/ — the same tools/build.py a developer runs locally.
+# One run produces the Chrome, Edge, and Firefox store zips and verifies
+# them before uploading, so the artifacts on a run are the store-ready
+# packages, not a promise of them.
+on:
+  push:
+    paths:
+      - 'extension/**'
+      - '.github/workflows/extension.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify the extension tree (pin, permissions, no network surface)
+        run: python3 extension/tools/verify.py
+
+      - name: Smoke test (jsdom drives the real payload)
+        working-directory: extension/tests
+        run: |
+          npm install --no-audit --no-fund
+          node smoke.test.mjs
+
+      - name: Build the three store zips
+        run: python3 extension/tools/build.py
+
+      - name: Verify the zips (manifest at root, full payload)
+        run: python3 extension/tools/verify.py --zips
+
+      - name: Upload Chrome zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: dogear-extension-chrome
+          path: extension/build/dogear-extension-chrome-*.zip
+
+      - name: Upload Edge zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: dogear-extension-edge
+          path: extension/build/dogear-extension-edge-*.zip
+
+      - name: Upload Firefox zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: dogear-extension-firefox
+          path: extension/build/dogear-extension-firefox-*.zip

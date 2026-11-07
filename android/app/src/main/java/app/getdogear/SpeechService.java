@@ -16,6 +16,7 @@ import android.os.IBinder;
 import android.os.PowerManager;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
+import android.speech.tts.Voice;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
@@ -103,6 +104,15 @@ public class SpeechService extends Service implements PlayerCore.SpeechPort {
     private String currentText = null;
     private float currentRate = 1f;
     private String currentLang = null;
+    // Voice selection (1.7.0): the page's voice token for the
+    // held chunk, the voice name it resolves to on the live
+    // engine, the engine package the live TTS was built with
+    // (null = the phone's default engine), and the shared init
+    // listener every engine instance is built with.
+    private String currentVoiceSpec = null;
+    private String desiredVoiceName = null;
+    private String currentEnginePkg = null;
+    private TextToSpeech.OnInitListener ttsInitListener;
 
     private String nowTitle = "DogEar";
     private boolean focusPaused = false;
@@ -117,11 +127,17 @@ public class SpeechService extends Service implements PlayerCore.SpeechPort {
     // ------------------------------------------------------------------
 
     public static void speak(Context ctx, int id, String text, float rate, String lang) {
+        speak(ctx, id, text, rate, lang, null);
+    }
+
+    public static void speak(Context ctx, int id, String text, float rate, String lang,
+                             String voiceSpec) {
         Intent i = new Intent(ctx, SpeechService.class).setAction(ACTION_SPEAK);
         i.putExtra("id", id);
         i.putExtra("text", text);
         i.putExtra("rate", rate);
         i.putExtra("lang", lang);
+        if (voiceSpec != null) i.putExtra("voice", voiceSpec);
         ContextCompat.startForegroundService(ctx, i);
     }
 
@@ -236,9 +252,17 @@ public class SpeechService extends Service implements PlayerCore.SpeechPort {
         });
         // The core's SpeechPort: transport orders arrive here.
         PlayerCoreProvider.get(this).attachSpeech(this);
-        tts = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
+        ttsInitListener = new TextToSpeech.OnInitListener() {
             @Override
-            public void onInit(int status) {
+            public void onInit(int status) { onTtsInit(status); }
+        };
+        tts = newTts(null);
+    }
+
+    /* The TTS init body (unchanged from the single-engine era),
+       now shared: the default engine and any engine the
+       listener's voice choice switches to run the same init. */
+    private void onTtsInit(int status) {
                 // This callback can land AFTER teardown (a title-only
                 // start stopSelfs immediately; teardownTts nulls the
                 // field while init is still in flight). Dereferencing
@@ -295,6 +319,7 @@ public class SpeechService extends Service implements PlayerCore.SpeechPort {
                             }
                         }
                     });
+                    applyDesiredVoice();
                     if (pendingSpeak && currentId != null) {
                         pendingSpeak = false;
                         speakNow();
@@ -306,9 +331,8 @@ public class SpeechService extends Service implements PlayerCore.SpeechPort {
                     currentId = null;
                     emit("{\"t\":\"error\",\"id\":" + id + "}");
                 }
-            }
-        });
     }
+
 
     // ------------------------------------------------------------------
     // Instance entry points (JS bridge direct calls + intent handling
@@ -317,11 +341,16 @@ public class SpeechService extends Service implements PlayerCore.SpeechPort {
     // ------------------------------------------------------------------
 
     public void speakChunk(final int id, final String text, final float rate, final String lang) {
+        speakChunk(id, text, rate, lang, null);
+    }
+
+    public void speakChunk(final int id, final String text, final float rate, final String lang,
+                           final String voiceSpec) {
         if (destroyed) {
             // Never speak into a corpse: re-enter through the
             // foreground-service start, which builds a fresh,
             // living instance (the user just pressed Listen).
-            speak(getApplicationContext(), id, text, rate, lang);
+            speak(getApplicationContext(), id, text, rate, lang, voiceSpec);
             return;
         }
         idleHandler.post(new Runnable() {
@@ -330,15 +359,153 @@ public class SpeechService extends Service implements PlayerCore.SpeechPort {
                 currentText = text;
                 currentRate = rate;
                 currentLang = lang;
+                currentVoiceSpec = voiceSpec;
                 state = STATE_PLAYING;
                 sessionActive = true;
                 focusPaused = false;
                 cancelIdleTeardown();
                 ensureForeground();
                 requestFocus();
+                ensureVoiceEngine();
                 speakNow();
             }
         });
+    }
+
+    /* Voice selection (1.7.0). The page's token grammar:
+       'android-engine:<pkg>' — that engine, its own default
+       voice; 'android:<enginePkg>:<voice name>' — that engine's
+       named voice; anything else (null, 'dogear:device') leaves
+       engine and voice at the phone's defaults. Switching
+       engines rebuilds the TTS instance; the held chunk is
+       re-fired by the init path (pendingSpeak), so a switch
+       mid-document never loses the chunk or its place. */
+    private void ensureVoiceEngine() {
+        desiredVoiceName = null;
+        String spec = currentVoiceSpec;
+        if (spec == null) return;
+        String targetEngine = null;
+        if (spec.startsWith("android-engine:")) {
+            targetEngine = spec.substring("android-engine:".length());
+        } else if (spec.startsWith("android:")) {
+            String rest = spec.substring("android:".length());
+            int cut = rest.indexOf(':');
+            if (cut > 0) {
+                targetEngine = rest.substring(0, cut);
+                desiredVoiceName = rest.substring(cut + 1);
+            } else if (!rest.isEmpty()) {
+                desiredVoiceName = rest;
+            }
+        } else {
+            return;
+        }
+        if (desiredVoiceName != null && desiredVoiceName.isEmpty()) {
+            desiredVoiceName = null;
+        }
+        if (targetEngine != null && !targetEngine.isEmpty()
+                && !targetEngine.equals(currentEnginePkg)) {
+            switchEngine(targetEngine);
+        }
+    }
+
+    private void switchEngine(String pkg) {
+        TextToSpeech old = tts;
+        ttsReady = false;
+        pendingSpeak = true; // onTtsInit re-fires the held chunk
+        try {
+            tts = newTts(pkg);
+            currentEnginePkg = pkg;
+        } catch (Exception e) {
+            try {
+                tts = newTts(null);
+                currentEnginePkg = null;
+            } catch (Exception ignored) {
+                tts = null;
+            }
+        }
+        if (old != null && old != tts) {
+            try { old.stop(); } catch (Exception ignored) {}
+            try { old.shutdown(); } catch (Exception ignored) {}
+        }
+    }
+
+    private TextToSpeech newTts(String enginePkg) {
+        if (enginePkg == null || enginePkg.isEmpty()) {
+            return new TextToSpeech(getApplicationContext(), ttsInitListener);
+        }
+        return new TextToSpeech(getApplicationContext(), ttsInitListener, enginePkg);
+    }
+
+    private void applyDesiredVoice() {
+        if (tts == null || desiredVoiceName == null) return;
+        try {
+            java.util.Set<Voice> voices = tts.getVoices();
+            if (voices == null) return;
+            for (Voice v : voices) {
+                if (v != null && desiredVoiceName.equals(v.getName())) {
+                    tts.setVoice(v);
+                    return;
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    /* Voice enumeration (1.7.0): the page's picker asks which
+       voices the phone's DEFAULT engine offers. A short-lived
+       probe instance lists them once; the result is cached for
+       the process, and the page is told ({"t":"voices"}) when
+       the probe lands so it can re-ask. Other engines are
+       picked at engine level — their voices enumerate from the
+       live service once such an engine is in use. */
+    private static volatile String voicesJsonCache = null;
+    private static volatile boolean voicesProbeRunning = false;
+    private static TextToSpeech voicesProbe;
+
+    public static String enumerateVoicesJson(Context ctx) {
+        String cached = voicesJsonCache;
+        if (cached != null) return cached;
+        if (voicesProbeRunning) return "[]";
+        voicesProbeRunning = true;
+        try {
+            voicesProbe = new TextToSpeech(ctx.getApplicationContext(),
+                new TextToSpeech.OnInitListener() {
+                    @Override public void onInit(int status) {
+                        String json = "[]";
+                        TextToSpeech probe = voicesProbe;
+                        if (status == TextToSpeech.SUCCESS && probe != null) {
+                            try {
+                                String engine = probe.getDefaultEngine();
+                                org.json.JSONArray arr = new org.json.JSONArray();
+                                java.util.Set<Voice> vs = probe.getVoices();
+                                if (vs != null) {
+                                    for (Voice v : vs) {
+                                        if (v == null) continue;
+                                        org.json.JSONObject o = new org.json.JSONObject();
+                                        o.put("name", v.getName());
+                                        Locale loc = v.getLocale();
+                                        o.put("lang", loc != null ? loc.toLanguageTag() : "");
+                                        o.put("engine", engine != null ? engine : "");
+                                        arr.put(o);
+                                    }
+                                }
+                                json = arr.toString();
+                            } catch (Exception ignored) {}
+                        }
+                        voicesJsonCache = json;
+                        voicesProbeRunning = false;
+                        if (probe != null) {
+                            try { probe.shutdown(); } catch (Exception ignored) {}
+                            if (voicesProbe == probe) voicesProbe = null;
+                        }
+                        EventSink sink = eventSink;
+                        if (sink != null) sink.onSpeechEvent("{\"t\":\"voices\"}");
+                    }
+                });
+        } catch (Exception e) {
+            voicesProbeRunning = false;
+            voicesJsonCache = "[]";
+        }
+        return "[]";
     }
 
     public void pauseFromBridge() {
@@ -448,7 +615,8 @@ public class SpeechService extends Service implements PlayerCore.SpeechPort {
                 speakChunk(intent.getIntExtra("id", -1),
                         intent.getStringExtra("text"),
                         intent.getFloatExtra("rate", 1f),
-                        intent.getStringExtra("lang"));
+                        intent.getStringExtra("lang"),
+                        intent.getStringExtra("voice"));
                 break;
             case ACTION_PAUSE:
                 core().pause(PlayerCore.Source.PAGE);
@@ -529,6 +697,7 @@ public class SpeechService extends Service implements PlayerCore.SpeechPort {
                 }
             }
         } catch (Exception ignored) {}
+        applyDesiredVoice();
         try { tts.setSpeechRate(currentRate); } catch (Exception ignored) {}
         AudioAttributes attrs = new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_MEDIA)

@@ -1,0 +1,11 @@
+{
+  "files": {
+    "reader-core.css": "af7a6a00e4b19948897d6e1b50b97e031ef8ed4758e909a0b0a3bc7f287ab450",
+    "reader-core.js": "71a228ff6fff3ccd0c606e5b8da1a2f5d146eebcacf04a6b26f91bdefb1c9fbd"
+  },
+  "name": "reader-core",
+  "note": "Local pin ahead of upstream: carries the 0.2.1 patches (on-device voices only, no network/browser-default fallback, refusal via opts.onNoLocalVoice; caller-supplied synchronous storage adapter via opts.storage) plus the 0.3.0 paragraph navigation \u2014 paragraph map, read-from-here gestures, scrubbable seek bar, previous/next paragraph, read-this-only ranges, follow-along scroll, and voice-picker plumbing (opts.voiceURI, setVoice/getVoices). Pending upstream as 0.3.0. The hashes above pin the bytes exactly as shipped.",
+  "repo": "https://github.com/nrupala/reader-core",
+  "tag": "v0.3.0",
+  "version": "0.3.0"
+}
