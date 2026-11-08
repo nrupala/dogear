@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # DogEar APK launch crash — root cause and fix (2026-10-21)
 
 **Status: FIXED AND PROVEN IN AN EMULATOR.** v1 crashed on launch (the owner's

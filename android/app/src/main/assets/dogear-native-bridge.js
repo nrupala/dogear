@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /* DogEar native speech bridge — the Android shell's speech transport.
  *
  * In a plain browser this file does NOTHING: no interface, no shim,

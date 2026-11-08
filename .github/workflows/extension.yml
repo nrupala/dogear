@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: Extension
+
+# The DogEar browser extension is built HERE, in CI, from the one source
+# tree in extension/ — the same tools/build.py a developer runs locally.
+# One run produces the Chrome, Edge, and Firefox store zips and verifies
+# them before uploading, so the artifacts on a run are the store-ready
+# packages, not a promise of them.
+on:
+  push:
+    paths:
+      - 'extension/**'
+      - '.github/workflows/extension.yml'
+      - 'package.json'
+      - 'eslint.config.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (extension JS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+
+      # ESLint flat config lives at the repo root, outside the shipped
+      # extension/ payload (extension/tools/build.py packages extension/
+      # only). It gates the extension scripts + smoke test on core
+      # correctness rules (no-undef, no-unreachable, ...). See the
+      # calibration notes in eslint.config.mjs.
+      - name: Install lint tooling
+        run: npm install --no-audit --no-fund
+
+      - name: Lint the extension surface
+        run: npm run lint
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+
+      - name: Verify the extension tree (pin, permissions, no network surface)
+        run: python3 extension/tools/verify.py
+
+      - name: Smoke test (jsdom drives the real payload)
+        working-directory: extension/tests
+        run: |
+          npm install --no-audit --no-fund
+          node smoke.test.mjs
+
+      - name: Build the three store zips
+        run: python3 extension/tools/build.py
+
+      - name: Verify the zips (manifest at root, full payload)
+        run: python3 extension/tools/verify.py --zips
+
+      - name: Upload Chrome zip
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dogear-extension-chrome
+          path: extension/build/dogear-extension-chrome-*.zip
+
+      - name: Upload Edge zip
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dogear-extension-edge
+          path: extension/build/dogear-extension-edge-*.zip
+
+      - name: Upload Firefox zip
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dogear-extension-firefox
+          path: extension/build/dogear-extension-firefox-*.zip

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # DogEar bundled app — the two-endpoint design (2026-10-22)
 
 **Owner's architecture decision (2026-10-22 02:18 MDT):** *"Let the web

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # DogEar release rules.
 # The JS bridge is reached reflectively by the WebView: its
 # @JavascriptInterface methods must survive minification by name.

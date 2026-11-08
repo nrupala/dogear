@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // ESLint flat config — DogEar browser extension (1.1.0).
 // Plain scripts in three contexts (background service worker,
 // content script, popup) sharing the chrome.* surface and the

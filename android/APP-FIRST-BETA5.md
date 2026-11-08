@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # DogEar beta.5 — app-first scaffolding: design note
 
 Date: 2026-10-22 (late evening). Lane: Wright beta.5 commission.

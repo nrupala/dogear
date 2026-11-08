@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # Changelog — DogEar browser extension
 
 All notable changes to the DogEar extension (`extension-src/`) are

@@ -12,6 +12,9 @@
      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
      See the License for the specific language governing permissions and
      limitations under the License.
+    SPDX-FileCopyrightText: 2019 Google Inc.
+
+    SPDX-License-Identifier: Apache-2.0
 -->
 
 <!-- The "package" attribute is rewritten by the Gradle build with the value of applicationId.
@@ -67,9 +70,25 @@
         </intent>
     </queries>
 
+    <!-- Backup posture (2026-11-07, gate remediation): allowBackup is
+         FALSE — no app data enters Android cloud backups or
+         device-to-device transfers, on any API level. Reason: the
+         WebView's local storage can hold the listener's own model API
+         key (entered in the app for the bring-your-own-brain endpoint),
+         and that storage's on-disk layout is a WebView implementation
+         detail — an include/exclude rules file aimed at it
+         (dataExtractionRules / fullBackupContent) would only be as
+         strong as that layout staying fixed across WebView versions,
+         in two different rule dialects across this app's API range
+         (minSdk 24, targetSdk 36). One attribute closes the exposure by
+         construction and is provable from the built manifest alone.
+         DogEar is local-first — "nothing is uploaded" is the product's
+         stated posture — and loses nothing it promises: library,
+         places and session records live on the device and can be
+         exported from inside the app. -->
     <application
         android:name="Application"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/appName"
         

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # DogEar background playback — design note (2026-10-21)
 
 **Defect (owner-reported, v1.0.1 on his phone):** reading stops when the app

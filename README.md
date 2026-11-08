@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 # dogear
 
 **Document in, place kept, resume anywhere.**
@@ -5,6 +11,41 @@
 A read-aloud reader that remembers where you stopped. Web app and browser extensions coming soon.
 
 Owned by [Nrupal Akolkar](https://nrupalakolkar.com) · Built with [Muse by Meta](https://muse.ai/join) · https://getdogear.app — join Muse, then redeem code **101EEK** in Settings within 48 hours of joining and we both earn tokens.
+
+## Install
+
+This repo carries three surfaces; each installs from this tree.
+
+**Browser extension** (Chrome/Edge/Firefox): the store packages are
+built in CI from `extension/` (`.github/workflows/extension.yml`) — one
+run produces all three zips and verifies them before upload. For a
+local build: `python3 extension/tools/build.py`, then load the unpacked
+`extension/` directory from your browser's extensions page.
+
+**Android app**: packages are built in CI from `android/`
+(`.github/workflows/android-release.yml`) — never hand-assembled. For a
+local build you need JDK 17 and the Android SDK (platform 36):
+
+```sh
+cd android && ./gradlew assembleRelease
+```
+
+**Site embed**: no install — see "The embed" below; the reader is one
+self-contained file your page includes.
+
+## Usage
+
+- **Listen**: open a page carrying the embed (or the app), press the
+  `▶ dogear` button. Reading is chunked, the spoken sentence is
+  highlighted, and leaving the tab never kills speech.
+- **Resume**: your place is kept per article in `localStorage`; return
+  and the button reads `▶ Resume · 42%`.
+- **Move**: in the app and extension, start from any paragraph, drag
+  the progress bar, skip paragraph by paragraph, or read only a chosen
+  range.
+- **Talk**: where the voice pack is present, ask the document a
+  question by voice and hear the answer; the conversation can be saved
+  from inside the app.
 
 ## The embed
 
