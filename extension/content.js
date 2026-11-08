@@ -17,8 +17,11 @@
  * own storage, isolated from page scripts), written through the
  * storage adapter below; a place record left in the page's
  * localStorage by an earlier build is migrated once, on first read.
- * Listening time is metered locally toward 600 free minutes a month
- * (the allowance renews each month). The cross-surface unlock bridge
+ * Listening time is metered locally toward 60 free minutes a day
+ * (the allowance renews at local midnight; it was 600 minutes a
+ * month until the owner's ruling of 2026-11-07 — the stored
+ * monthly totals are not converted, the daily meter simply
+ * starts fresh under its day key). The cross-surface unlock bridge
  * is still owed (see README): nothing in this extension can receive
  * the DogEar app's unlock, and no copy here claims it can.
  */
@@ -27,7 +30,7 @@
   if (window.__dogearExtLoaded) return;
   window.__dogearExtLoaded = true;
 
-  var FREE_SECONDS = 600 * 60; // 600 free listening minutes per month
+  var FREE_SECONDS = 60 * 60; // 60 free listening minutes per day
   var NO_VOICE_MESSAGE =
     'No on-device voice found on this device \u2014 DogEar reads ' +
     'locally only, so it won\u2019t send your text to a network voice.';
@@ -67,10 +70,14 @@
     true
   );
 
-  function monthKey() {
+  function dayKey() {
     var d = new Date();
     return (
-      d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+      d.getFullYear() +
+      '-' +
+      String(d.getMonth() + 1).padStart(2, '0') +
+      '-' +
+      String(d.getDate()).padStart(2, '0')
     );
   }
 
@@ -150,14 +157,14 @@
   }
 
   function fmtMinutes(sec) {
-    return Math.floor(sec / 60) + ' of 600 free minutes used this month';
+    return Math.floor(sec / 60) + ' of 60 free minutes used today';
   }
 
   function updateMeterLine() {
     if (!meterEl) return;
     storageGet(['dogearMeter', 'dogearUnlocked']).then(function (o) {
       var m = o.dogearMeter || {};
-      var used = m[monthKey()] || 0;
+      var used = m[dayKey()] || 0;
       meterEl.textContent = o.dogearUnlocked
         ? 'Unlocked — listening is unlimited.'
         : fmtMinutes(used) + '.';
@@ -254,14 +261,14 @@
       } catch (e) {}
     }
     // Exactly what the meter enforces, no more: the allowance is
-    // monthly (the meter is keyed by calendar month) and renews on the
-    // first of next month. The message deliberately does NOT point at
+    // daily (the meter is keyed by local calendar day) and renews at
+    // midnight. The message deliberately does NOT point at
     // the DogEar app unlock: the bridge that would let this extension
     // receive it is not built, so the unlock cannot lift this limit
     // here today.
     showNote(
-      'Your 600 free minutes for this month are used up. The free ' +
-        'allowance renews on the first of next month.'
+      'Your 60 free minutes for today are used up. The free ' +
+        'allowance renews at midnight.'
     );
   }
 
@@ -274,9 +281,13 @@
       lastTick = now;
       if (!reader || reader.getState() !== 'playing') return;
       storageGet(['dogearMeter', 'dogearUnlocked']).then(function (o) {
-        var m = o.dogearMeter || {};
-        var k = monthKey();
-        m[k] = (m[k] || 0) + delta;
+        var k = dayKey();
+        // Only today's total is kept: earlier keys (whole months
+        // under the retired monthly meter, or past days) are
+        // dropped on write, so the stored map never grows and a
+        // legacy monthly total can never be read as today's.
+        var m = {};
+        m[k] = ((o.dogearMeter || {})[k] || 0) + delta;
         storageSet({ dogearMeter: m }).then(updateMeterLine);
         if (!o.dogearUnlocked && m[k] >= FREE_SECONDS) capStop();
       });

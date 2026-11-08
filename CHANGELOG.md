@@ -11,6 +11,13 @@ All notable changes to dogear are documented here, in
 
 ## [Unreleased]
 
+- **Free allowance is now daily** (owner's ruling, 2026-11-07):
+  60 free listening minutes per local day, renewing at midnight —
+  replacing 600 minutes per month. The meter key is the local
+  calendar day; stored monthly totals are not converted (the
+  daily map keeps only today's key, older keys drop on write).
+  Popup and in-page meter lines state the daily figures.
+
 ## [1.1.0-beta.4] - 2026-10-22
 
 Web 1.4.0 (certified worker sha256 428daa2044e82cd1…) bundled via the
