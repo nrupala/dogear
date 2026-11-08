@@ -20,6 +20,19 @@
 }(typeof window !== 'undefined' ? window : this, function () {
   'use strict';
 
+  // 0.4.0 (DogEar voice-pack seam, 2026-11-07; local pin, pending
+  // upstream — see PIN.json). Everything 0.3.0 does, plus ONE seam:
+  // create() accepts opts.synth + opts.UtteranceCtor — the exact
+  // injection speaker.js already uses — defaulting to
+  // window.speechSynthesis / window.SpeechSynthesisUtterance. A
+  // shell with its own on-device speech transport (DogEar's bundled
+  // Kokoro voice pack, a speechSynthesis-shaped object whose voices
+  // are synthetic localService entries) drives the reader through
+  // it, and every voice invariant below (on-device only, refusal
+  // with no local voice) applies to the transport's voices exactly
+  // as to the platform's. With no opts.synth, behaviour is
+  // byte-for-byte 0.3.0's.
+  //
   // 0.3.0 (DogEar navigation + voice, 2026-11-07; local pin, pending
   // upstream — see PIN.json). Carries the 0.2.1 invariants (on-device
   // voices ONLY; caller-supplied storage adapter; refusal via
@@ -61,7 +74,7 @@
   //     | a voiceURI) + setVoice(), which keeps the unit index;
   //   - opts.onPosition(info) reports {index, count, paragraph,
   //     paragraphs, progress, state, range} whenever position moves.
-  var VERSION = '0.3.0';
+  var VERSION = '0.4.0';
 
   var DEFAULTS = {
     // CSS selector for readable blocks, in document order.
@@ -121,9 +134,14 @@
     var root = typeof opts.root === 'string' ? document.querySelector(opts.root) : opts.root;
     var mount = typeof opts.mount === 'string' ? document.querySelector(opts.mount) : opts.mount;
     if (!root || !mount) throw new Error('ReaderCore: root and mount elements are required');
-    if (!('speechSynthesis' in window)) { mount.style.display = 'none'; return null; }
-
-    var synth = window.speechSynthesis;
+    // 0.4.0 seam (mirrors speaker.js): a caller-supplied transport
+    // replaces the platform synth wholesale; without one, the
+    // platform API is required exactly as before.
+    var synth = opts.synth ||
+      (typeof window !== 'undefined' ? window.speechSynthesis : null);
+    var UttCtor = opts.UtteranceCtor ||
+      (typeof window !== 'undefined' ? window.SpeechSynthesisUtterance : null);
+    if (!synth) { mount.style.display = 'none'; return null; }
 
     // ---- controls ---------------------------------------------------------
     var speedOpts = opts.speeds.map(function (s) {
@@ -472,7 +490,7 @@
       scrollToEl(ch.el);
       progress(i - 1);
       emitPos();
-      var u = new SpeechSynthesisUtterance(ch.text);
+      var u = new UttCtor(ch.text);
       if (voice) u.voice = voice;
       try { u.rate = parseFloat(rateSel.value) || 1; } catch (e) { u.rate = 1; }
       u.onend = function () { if (g !== gen || state !== 'playing') return; progress(i); advance(i, g); };

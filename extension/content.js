@@ -6,7 +6,7 @@
  *
  * Injected on the user's invocation only (activeTab). Mounts a DogEar bar
  * on the page and hands the page's article content to the PINNED
- * reader-core engine (vendor/reader-core, v0.3.0 — see PIN.json for
+ * reader-core engine (vendor/reader-core, v0.4.0 — see PIN.json for
  * the local patches it carries). Playback uses the operating system's
  * ON-DEVICE voices only, via Web Speech speechSynthesis: the engine
  * never selects a network voice and never falls back to the browser
