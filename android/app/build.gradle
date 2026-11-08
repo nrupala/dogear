@@ -235,6 +235,6 @@ dependencies {
     // plain JVM unit tests (src/test). The real org.json shadows
     // the android.jar stub on the unit-test classpath.
     testImplementation 'junit:junit:4.13.2'
-    testImplementation 'org.json:json:20231013'
+    testImplementation 'org.json:json:20260814'
 
 }
