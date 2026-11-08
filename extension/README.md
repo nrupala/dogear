@@ -34,8 +34,8 @@ reader-core; they never fork it. The pinned bytes live in
   read to the browser vendor's servers, so the engine prefers voices
   that live on your device. To change the voice, change your system's
   default voice in your OS settings.
-- **Metering, honestly** — listening counts toward the same **600 free
-  minutes a month** every DogEar surface shares; the one-time unlock
+- **Metering, honestly** — listening counts toward the same **60 free
+  minutes a day** every DogEar surface shares; the one-time unlock
   (US$24.99) in the DogEar app removes the limit. The device's voices
   are never sold — the charge is for heavy use of the app.
 
@@ -49,8 +49,8 @@ calls anywhere in the shell code; `tools/verify.py` enforces that.
 
 ## Known Phase 1 boundaries (recorded, not hidden)
 
-- **Shared meter/unlock bridge is owed plumbing.** The 600-minute
-  allowance is enforced inside the extension today; the bridge that
+- **Shared meter/unlock bridge is owed plumbing.** The 60-minute
+  daily allowance is enforced inside the extension today; the bridge that
   shares one meter and one unlock state between the extension and the
   web app is the one genuine piece of new plumbing the scope names as a
   dependency. Until it lands, heavy use across both surfaces is counted
