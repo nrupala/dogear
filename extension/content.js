@@ -48,10 +48,21 @@
   // carries no target — that case is answered honestly in
   // doFromHere().
   var lastContextEl = null;
+  // The press point rides along: when the hit target carries no
+  // sentence (the paragraph element itself — the gap between two
+  // sentence spans, a line's unpainted stretch), the engine's
+  // geometry resolves the sentence on the point's line instead of
+  // silently defaulting to the paragraph (the owner's live retest
+  // finding, 2026-11-07).
+  var lastContextPoint = null;
   document.addEventListener(
     'contextmenu',
     function (e) {
       lastContextEl = e.target || null;
+      lastContextPoint =
+        e && isFinite(e.clientX) && isFinite(e.clientY)
+          ? { x: e.clientX, y: e.clientY }
+          : null;
     },
     true
   );
@@ -408,7 +419,8 @@
     if (
       reader &&
       lastContextEl &&
-      reader.seekFromNode(lastContextEl, { resume: true }) >= 0
+      reader.seekFromNode(lastContextEl,
+        { resume: true, point: lastContextPoint }) >= 0
     ) {
       showNote('');
       return true;

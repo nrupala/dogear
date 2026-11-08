@@ -41,6 +41,22 @@
   //     read-from-here) to the sentence containing the point, with
   //     the paragraph as the fallback for a point on the paragraph
   //     itself. playSelection already starts at its anchor sentence;
+  //   - pointed-start robustness (owner's live retest, 2026-11-07):
+  //     a press whose hit target is the paragraph element itself
+  //     (the space between two sentence spans, a line's unpainted
+  //     stretch) no longer silently degrades to the paragraph when
+  //     the caller passes the press point (opts.point {x, y} on
+  //     seekFromNode; the engine's own gestures pass theirs): the
+  //     sentence on the point's line, nearest the point, wins. A
+  //     target element wrapping part of ONE sentence (an inline
+  //     element on a real page) resolves to that sentence too.
+  //     playSelection falls back to the last selection this reader
+  //     observed (tracked on selectionchange) when the live
+  //     selection is already gone — on touch devices tapping the
+  //     shell's button collapses the selection before the click
+  //     arrives, so the live read alone can never succeed there.
+  //     The "select some text first" refusal now means no selection
+  //     was EVER observed inside this reader;
   //   - voice choice: opts.voiceURI ('dogear:default' | 'system:default'
   //     | a voiceURI) + setVoice(), which keeps the unit index;
   //   - opts.onPosition(info) reports {index, count, paragraph,
@@ -574,14 +590,66 @@
     }
     // The sentence containing a DOM node (a selection endpoint, an
     // event target, a shell's tracked click target), or -1 when the
-    // node is not inside one of this reader's sentence spans.
+    // node is not inside one of this reader's sentence spans. A
+    // target element that WRAPS sentence spans (an inline element
+    // on a real page — a link or emphasis around part of a
+    // sentence) resolves too when every span it wraps belongs to
+    // ONE sentence: the wrapper is that sentence's own furniture.
+    // A wrapper spanning several sentences stays unresolved here;
+    // the point geometry below is the finer instrument for it.
     function sentenceIndexForNode(node) {
       var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
       if (!el || !el.closest) return -1;
       var sp = el.closest('.rc-sent');
-      if (!sp || !root.contains(sp)) return -1;
-      for (var i = 0; i < sents.length; i++) if (sents[i].el === sp) return i;
-      return -1;
+      if (sp && root.contains(sp)) {
+        for (var i = 0; i < sents.length; i++) if (sents[i].el === sp) return i;
+        return -1;
+      }
+      if (!root.contains(el) || !el.querySelectorAll) return -1;
+      var inner = el.querySelectorAll('.rc-sent');
+      var found = -1;
+      for (var j = 0; j < inner.length; j++) {
+        var si = -1;
+        for (var k = 0; k < sents.length; k++) {
+          if (sents[k].el === inner[j]) { si = k; break; }
+        }
+        if (si < 0) continue;
+        if (found >= 0 && found !== si) return -1;
+        found = si;
+      }
+      return found;
+    }
+    // The sentence of paragraph p at a press point (client
+    // coordinates), or -1 when the point is on no sentence's line.
+    // A span whose painted box holds the point wins outright;
+    // otherwise the point must share a line with a span (its y
+    // inside the span's vertical band) and the nearest such span
+    // on that line wins — that is the press that landed on the
+    // space between two sentences, or just past a line's last
+    // word. A point above the first line, below the last, or in
+    // the paragraph's padding resolves NOTHING: the paragraph
+    // fallback owns those, honestly.
+    function sentenceAtPoint(p, x, y) {
+      if (!isFinite(x) || !isFinite(y)) return -1;
+      var best = -1, bestGap = Infinity;
+      for (var i = 0; i < sents.length; i++) {
+        if (sents[i].para !== p) continue;
+        var rects;
+        try { rects = sents[i].el.getClientRects(); } catch (e) { return -1; }
+        if (!rects) continue;
+        for (var r = 0; r < rects.length; r++) {
+          var rc = rects[r];
+          if (!rc || (!rc.width && !rc.height)) continue;
+          if (x >= rc.left && x <= rc.right && y >= rc.top && y <= rc.bottom) {
+            return i;
+          }
+          if (y >= rc.top && y <= rc.bottom) {
+            var gap = x < rc.left ? rc.left - x : (x > rc.right ? x - rc.right : 0);
+            if (gap < bestGap) { bestGap = gap; best = i; }
+          }
+        }
+      }
+      return best;
     }
     function selectionSpan(node) {
       return sentenceIndexForNode(node);
@@ -603,24 +671,61 @@
     // gestures; the shells' read-from-here): the sentence under the
     // point wins, so aiming at a paragraph's third sentence starts
     // there — not back at the paragraph top (the owner's live
-    // finding on the 1.7.0 RC, 2026-11-07). The paragraph is the
-    // fallback for a point on the paragraph itself: its margin, its
-    // action row, the block element. Returns the chunk index
-    // playback moved to, or -1 when the point is not in the reading
-    // matter at all.
+    // finding on the 1.7.0 RC, 2026-11-07). When the hit target
+    // carries no sentence (the paragraph element itself — the press
+    // landed on the gap between two sentence spans, or a line's
+    // unpainted stretch) and the caller passes the press point
+    // (o.point = {x, y}, client coordinates), the sentence on the
+    // point's line, nearest the point, wins instead of the silent
+    // paragraph default (the owner's live RETEST finding, same
+    // day: the same paragraph, a few pixels apart, gave both
+    // answers). The paragraph remains the fallback for a point
+    // truly on the paragraph itself: its padding, its action row,
+    // the block element with no sentence on the point's line.
+    // Returns the chunk index playback moved to, or -1 when the
+    // point is not in the reading matter at all.
     function seekFromNode(node, o) {
       var si = sentenceIndexForNode(node);
+      var p = -1;
+      if (si < 0) {
+        p = paraFromNode(node);
+        if (p >= 0 && o && o.point) {
+          si = sentenceAtPoint(p, o.point.x, o.point.y);
+        }
+      }
       if (si >= 0) return seekToSentence(si, o);
-      var p = paraFromNode(node);
+      if (p < 0) p = paraFromNode(node);
       if (p < 0) return -1;
       return seekToParagraph(p, o);
     }
-    function playSelection() {
+    // The last selection observed inside this reader (sentence
+    // indexes at both ends), tracked on selectionchange. Touch
+    // browsers collapse the live selection the moment the listener
+    // reaches for the shell's Read-this-only button, so the button
+    // can never see the selection it exists for; the tracked copy
+    // is what the tap meant. Only a live, resolvable selection is
+    // ever recorded — a collapse teaches nothing and erases
+    // nothing.
+    var lastSel = null;
+    function trackSelection() {
       var sel = null;
       try { sel = window.getSelection ? window.getSelection() : null; } catch (e) {}
-      if (!sel || sel.isCollapsed || !sel.rangeCount) return false;
+      if (!sel || sel.isCollapsed || !sel.rangeCount) return;
       var a = selectionSpan(sel.anchorNode);
       var f = selectionSpan(sel.focusNode);
+      if (a >= 0 && f >= 0) lastSel = { a: a, f: f };
+    }
+    document.addEventListener('selectionchange', trackSelection);
+    function playSelection() {
+      var a = -1, f = -1;
+      var sel = null;
+      try { sel = window.getSelection ? window.getSelection() : null; } catch (e) {}
+      if (sel && !sel.isCollapsed && sel.rangeCount) {
+        a = selectionSpan(sel.anchorNode);
+        f = selectionSpan(sel.focusNode);
+        if (a >= 0 && f >= 0) lastSel = { a: a, f: f };
+      }
+      if ((a < 0 || f < 0) && lastSel) { a = lastSel.a; f = lastSel.f; }
       if (a < 0 || f < 0) return false;
       var s0 = Math.min(a, f), s1 = Math.max(a, f);
       var end = (s1 + 1 < sents.length) ? sentStart[s1 + 1] : chunks.length;
@@ -655,24 +760,34 @@
     // seekFromNode rule the shells' read-from-here uses.
     var lpTimer = null;
     var lpNode = null;
+    var lpPoint = null;
+    function eventPoint(e) {
+      if (!e || !isFinite(e.clientX) || !isFinite(e.clientY)) return null;
+      return { x: e.clientX, y: e.clientY };
+    }
     function onContextMenu(e) {
-      if (!e || seekFromNode(e.target, { resume: true }) < 0) return;
+      if (!e || seekFromNode(e.target,
+        { resume: true, point: eventPoint(e) }) < 0) return;
       e.preventDefault();
     }
     function clearLp() {
       if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
       lpNode = null;
+      lpPoint = null;
     }
     function onPointerDown(e) {
       if (e.pointerType === 'mouse') return;
       if (sentenceIndexForNode(e.target) < 0 && paraFromNode(e.target) < 0) return;
       clearLp();
       lpNode = e.target;
+      lpPoint = eventPoint(e);
       lpTimer = setTimeout(function () {
         lpTimer = null;
         var node = lpNode;
+        var point = lpPoint;
         lpNode = null;
-        if (node) seekFromNode(node, { resume: true });
+        lpPoint = null;
+        if (node) seekFromNode(node, { resume: true, point: point });
       }, 600);
     }
     if (opts.navGestures) {
@@ -771,6 +886,7 @@
         }
         document.removeEventListener('pagehide', onPageHide);
         document.removeEventListener('visibilitychange', onVisibility);
+        document.removeEventListener('selectionchange', trackSelection);
         mount.innerHTML = '';
       },
     };
