@@ -4,61 +4,96 @@ SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# Changelog
+# Changelog — DogEar browser extension
 
-All notable changes to dogear are documented here, in
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
+All notable changes to the DogEar extension (`extension-src/`) are
+recorded here, in [Keep a Changelog](https://keepachangelog.com)
+format. This file is the extension's update chain: **every version
+bump adds its entry here, in the same commit as the bump** — the
+store listing's "what's new", the manifest version, and this file
+must never disagree.
+
+(The DogEar app's history lives in `../BETA-RELEASE-NOTES.md`; this
+file covers the browser extension only.)
 
 ## [Unreleased]
 
-## [1.1.0-beta.4] - 2026-10-22
+- **Free allowance is now daily** (owner's ruling, 2026-11-07):
+  60 free listening minutes per local day, renewing at midnight —
+  replacing 600 minutes per month. The meter key is the local
+  calendar day; stored monthly totals are not converted (the
+  daily map keeps only today's key, older keys drop on write).
+  Popup and in-page meter lines state the daily figures.
 
-Web 1.4.0 (certified worker sha256 428daa2044e82cd1…) bundled via the
-regenerated routes-only bundle-manifest (worker hash cross-checked).
+## [1.1.0] — 2026-11-07 (in development, not yet submitted)
 
-### Fixed
-- Talk never started in the shell: Chromium's WebView capture path
-  requires MODIFY_AUDIO_SETTINGS alongside RECORD_AUDIO — the manifest
-  now declares it (owner's phone, A/B-proven on the bench).
-- Microphone errors blamed the user's permission for every failure
-  class; the copy now names the real class (denied / busy / no mic /
-  interrupted).
-- The top control row was painted under the status bar and untappable
-  (edge-to-edge insets ignored); MainActivity now applies decor-view
-  insets.
-- Voice models the in-app engine cannot safely run (Small / Medium /
-  Large in the WASM runtime) were downloadable but could never load —
-  the shelf now gates them with the reason until the native-inference
-  phase lands. Silence transcriptions ([BLANK_AUDIO]) are no longer
-  quoted back as speech.
+Paragraph navigation, on the reader-core 0.3.0 engine (the same
+engine build as the app):
+
+- Right-click menu: "Read from here with DogEar" (starts at the
+  paragraph you right-clicked, once DogEar has run on the page)
+  and "Read this only with DogEar" (reads just the selection).
+- Popup player: Previous / Next paragraph buttons, a seek bar,
+  and a position line ("Paragraph X of Y").
+- Follow-along: the spoken sentence is highlighted and the page
+  scrolls to it; the paragraph being read is marked.
+- Voice picker in the popup: DogEar's voice leads; the system
+  default and the device's other on-device voices are in the
+  same list. The choice is remembered and switching mid-page
+  keeps the reading place.
+- Store publication remains blocked by the Web Store limit
+  case — this version is built and proven locally only.
+
+## [1.0.0] — 2026-10-30
+
+First store release (Chrome Web Store, Microsoft Edge Add-ons,
+Firefox AMO), as remediated after the Gemini third-party pre-store
+check of 2026-10-30 (see `../store/GEMINI-CHECK-2026-10-30.md`).
 
 ### Added
-- Battery-exemption flow: bridge state query + a one-time in-reader
-  hint that opens the system setting (Samsung app-sleep can kill
-  background reading; playback itself is proven on stock Android).
-- `tools/bundle_web.py`: bundle variants are a first-class flag
-  (`--routes-only` = shell-only, the beta.3/beta.4 shape); manifests
-  are never hand-filtered.
+
+- Read the current page — or just the selected passage — aloud from
+  the toolbar popup, the right-click menu, or `Alt+Shift+R`. The
+  reading bar mounts on the page with play/pause, stop, speed
+  control, progress, and sentence highlighting.
+- **On-device voices only, enforced in the engine.** DogEar reads
+  with a voice that lives on your device and never sends text
+  anywhere: the reader engine (reader-core 0.2.1) never selects a
+  network voice and never falls back to the browser's default voice.
+  If the device has no on-device voice, reading does not start and
+  the bar says so plainly.
+- **Place memory.** Your place on each page is kept and offered
+  again on return. Place records live in the extension's own
+  `chrome.storage.local`, isolated from page scripts; a record left
+  in a page's `localStorage` by an earlier build is migrated once
+  and removed from the page.
+- **Free allowance, stated as implemented: 600 listening minutes
+  per month**, metered on the device only, renewing on the first of
+  each month. When the month's allowance is used up, reading stops
+  and the bar says when it renews. No purchase is offered inside the
+  extension, and no external unlock is claimed to apply to it.
+- Popup showing this month's listening meter and the device's
+  voices, marking which are on-device (network voices are listed as
+  never used).
+- Icons at 16/32/48/128 (page with a folded dog-ear corner and a
+  play mark, in the product's indigo/aquamarine).
+
+### Security
+
+- Permissions are exactly `activeTab`, `scripting`, `contextMenus`,
+  `storage` — no host permissions, no network code anywhere in the
+  extension.
+- Runtime messages between popup, background worker, and content
+  script are validated: sender must be this extension, and commands
+  must be on a fixed allowlist.
+- Store packages are built from a runtime-file allowlist
+  (`tools/build.py`); `tools/verify.py --zips` fails on any
+  unexpected file in a package.
 
 ### Notes
-- Background legs (minimize / screen-off place advance) are now
-  permanent release-proof legs, re-run on the shipped artifact.
 
-## [1.1.0-beta.3] and earlier
-
-- Licensed under AGPL-3.0 (portfolio license policy, owner decision 2026-10-11); canonical license text added as `LICENSE`.
-
-
-### Added
-- `CONTRIBUTING.md`: PR-flow discipline (draft PR → tests green → owner
-  merges; no direct pushes to `main`; merge commits reference PR numbers;
-  releases tagged `vX.Y.Z`), signed-deploys-only policy, and test instructions.
-- `NOTICE`: attribution file ("Owned by Nrupal Akolkar · Built with Muse by Meta").
-
-### Changed
-- `tools/deploy-worker.py`: now DELEGATES to the site-integrity signed-deploy
-  wrapper (`~/workspace/site-integrity/deploy_signed.py`). The old unsigned
-  multipart module-upload path is deleted. The wrapper carries forward the
-  live script's non-secret bindings and compatibility date, preserves
-  server-side secrets, re-hashes the deployed bytes, and mints a signed ledger
-  certificate.
+- The Firefox package keeps the permanent add-on ID
+  `dogear@getdogear.app` (the product's own domain).
+- The cross-surface unlock bridge (DogEar app purchase lifting this
+  extension's monthly cap) is **not** built as of 1.0.0; the
+  extension's copy says nothing that depends on it.

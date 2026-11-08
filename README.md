@@ -4,87 +4,99 @@ SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-# dogear
+# DogEar — browser extension (Phase 1)
 
-**Document in, place kept, resume anywhere.**
+DogEar for the browser: one click and the page is read aloud in **your
+computer's own voice** — the operating system's built-in voices, through
+the browser's Web Speech `speechSynthesis`. Nothing is uploaded, there
+are no trackers, and no account is needed to start.
 
-A read-aloud reader that remembers where you stopped. Web app and browser extensions coming soon.
+> Document in, place kept, resume anywhere.
 
-Owned by [Nrupal Akolkar](https://nrupalakolkar.com) · Built with [Muse by Meta](https://muse.ai/join) · https://getdogear.app — join Muse, then redeem code **101EEK** in Settings within 48 hours of joining and we both earn tokens.
+Phase 1 is the owner's design from `~/workspace/dogear/EXTENSION-SCOPE.md`:
+a new shell on the canonical read-aloud engine, **reader-core**
+([nrupala/reader-core](https://github.com/nrupala/reader-core), Apache-2.0),
+**pinned at v0.2.0** — the same pin the DogEar web app carries. Shells pin
+reader-core; they never fork it. The pinned bytes live in
+`vendor/reader-core/` with their `PIN.json` hash record, and
+`tools/verify.py` fails the build if a single byte drifts.
 
-## Install
+## What it does
 
-This repo carries three surfaces; each installs from this tree.
+- **Read this page** — toolbar popup, right-click menu, or `Alt+Shift+R`.
+  Reader-core finds the article, wraps its sentences, and reads with
+  highlighting, speed control, pause/resume and stop. Your place is kept
+  per page: leave and come back, and reading resumes where it stopped.
+- **Read selection** — highlight a passage, right-click, and just that
+  passage is read.
+- **On-device voices first** — reader-core's standing privacy rule
+  (release-gate finding F11): a network voice would send the text being
+  read to the browser vendor's servers, so the engine prefers voices
+  that live on your device. To change the voice, change your system's
+  default voice in your OS settings.
+- **Metering, honestly** — listening counts toward the same **60 free
+  minutes a day** every DogEar surface shares; the one-time unlock
+  (US$24.99) in the DogEar app removes the limit. The device's voices
+  are never sold — the charge is for heavy use of the app.
 
-**Browser extension** (Chrome/Edge/Firefox): the store packages are
-built in CI from `extension/` (`.github/workflows/extension.yml`) — one
-run produces all three zips and verifies them before upload. For a
-local build: `python3 extension/tools/build.py`, then load the unpacked
-`extension/` directory from your browser's extensions page.
+## Permissions — narrow on purpose
 
-**Android app**: packages are built in CI from `android/`
-(`.github/workflows/android-release.yml`) — never hand-assembled. For a
-local build you need JDK 17 and the Android SDK (platform 36):
+`activeTab` (only the tab you invoke DogEar on, only when you invoke
+it), `scripting` (to place the reader on that tab), `contextMenus`,
+`storage` (the meter and settings). No host permissions, no background
+page scraping — reading starts only on your click. There are no network
+calls anywhere in the shell code; `tools/verify.py` enforces that.
 
-```sh
-cd android && ./gradlew assembleRelease
-```
+## Known Phase 1 boundaries (recorded, not hidden)
 
-**Site embed**: no install — see "The embed" below; the reader is one
-self-contained file your page includes.
+- **Shared meter/unlock bridge is owed plumbing.** The 60-minute
+  daily allowance is enforced inside the extension today; the bridge that
+  shares one meter and one unlock state between the extension and the
+  web app is the one genuine piece of new plumbing the scope names as a
+  dependency. Until it lands, heavy use across both surfaces is counted
+  per surface.
+- **Voice choice follows the pin.** An in-popup voice picker needs a
+  reader-core option the pinned v0.2.0 does not expose; per the pin
+  discipline the shell does not fork the engine to fake one. The popup
+  lists your computer's voices and the engine's on-device rule is
+  stated plainly. The picker arrives with a reader-core pin upgrade.
+- **Phase 2 (not in this build)** adds the Whisper pack inside the
+  extension — voice control and ask-the-text, on-device — once the pack
+  clears its gate in the web app. The extension inherits the pack; it
+  does not debut it.
 
-## Usage
+## Builds — one tree, three stores
 
-- **Listen**: open a page carrying the embed (or the app), press the
-  `▶ dogear` button. Reading is chunked, the spoken sentence is
-  highlighted, and leaving the tab never kills speech.
-- **Resume**: your place is kept per article in `localStorage`; return
-  and the button reads `▶ Resume · 42%`.
-- **Move**: in the app and extension, start from any paragraph, drag
-  the progress bar, skip paragraph by paragraph, or read only a chosen
-  range.
-- **Talk**: where the voice pack is present, ask the document a
-  question by voice and hear the answer; the conversation can be saved
-  from inside the app.
+`tools/build.py` assembles all three store packages from this one tree
+(and runs in GitHub Actions — see `.github/workflows/extension.yml`;
+artifacts land on the workflow run):
 
-## The embed
+- `dogear-extension-chrome-<version>.zip` — Chrome Web Store
+- `dogear-extension-edge-<version>.zip` — Microsoft Edge Add-ons (same
+  Chromium build)
+- `dogear-extension-firefox-<version>.zip` — Firefox Add-ons
+  (`manifest.firefox.json`: gecko id `dogear@getdogear.app`, event-page
+  background form)
 
-`reader/dogear.js` is the canonical, self-contained reader every article on our sites carries —
-the sites promote dogear just by being read.
+Verify before you ship: `python3 tools/verify.py` (tree) and
+`python3 tools/verify.py --zips` (after a build). Smoke test:
+`cd tests && npm install && node smoke.test.mjs` (jsdom; drives the real
+payload through the production message protocol).
 
-- **Branded surface**: dark terminal pill, phosphor-green accents, `▶ dogear` button, the
-  product tagline, and a link to getdogear.app. Identical on every site.
-- **Place kept**: per-article reading position in `localStorage`; the button becomes
-  `▶ Resume · 42%` when you return mid-article.
-- **Background-safe**: screen wake lock while speaking; leaving the tab never kills speech
-  (the OS still may, which the reader reconciles on return).
-- **Proven engine**: chunked utterances with sentence highlighting, progress bar, speed
-  selector, and the Android keep-alive nudge.
-- No libraries, no autoplay, no tracking.
+Load unpacked for a manual check: Chrome/Edge → Extensions → Developer
+mode → *Load unpacked* → this directory. Firefox → `about:debugging` →
+*This Firefox* → *Load Temporary Add-on* → `manifest.firefox.json`.
 
-### Use it
+## Safari — the owed step, recorded honestly
 
-```html
-<div data-dogear></div>
-<script src="reader/dogear.js"></script>
-```
+Safari is **not** in this pack. A Safari web extension is produced by
+converting this same source with Xcode's `safari-web-extension-converter`
+and shipping it inside a macOS app wrapper through the Apple Developer
+Program — a Mac step. This fleet has no Mac, so Safari waits for one;
+the source is written to convert cleanly (standard MV3, no
+Chromium-only APIs in the shell) when that day comes.
 
-Optional mount attributes: `data-dogear-scope` (default `article`), `data-dogear-select`
-(default `h1,h2,p,li`), `data-dogear-exclude`.
+## About
 
-### For worker-built sites
-
-`tools/build-worker-block.py` generates the `dogearBlock()` function that returns the mount
-div + inline script as an HTML string, safe to embed in a Cloudflare Worker. The generated
-code is never hand-edited — change `reader/dogear.js` and regenerate.
-
-### Test
-
-`node smoke.js` — stub-DOM harness covering chunking, labels, place-keeping, and the
-no-cancel-on-hide behavior.
-
-## Roadmap
-
-- v1: embed on all sites (this repo) ✅
-- Web app: document in, cross-device resume
-- Browser extensions: Chrome/Edge, Firefox
+DogEar by **2351485 ALBERTA INC. (AIMLDS)** — [getdogear.app](https://getdogear.app).
+Reader-core is Apache-2.0 (see its license header in `vendor/reader-core/`).

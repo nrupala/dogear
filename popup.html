@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<!--
+SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DogEar — Read Aloud</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <div class="brand">DogEar</div>
+    <div class="tag">Document in, place kept, resume anywhere.</div>
+  </header>
+
+  <div class="actions">
+    <button id="btn-read-page" type="button" class="primary">Read this page</button>
+    <button id="btn-read-selection" type="button">Read selection</button>
+    <div class="row">
+      <button id="btn-toggle" type="button">Pause / Resume</button>
+      <button id="btn-stop" type="button">Stop</button>
+    </div>
+    <div class="row">
+      <button id="btn-prev-para" type="button">&#9198; Previous paragraph</button>
+      <button id="btn-next-para" type="button">Next paragraph &#9197;</button>
+    </div>
+    <label class="seek-label" for="seek">Where to listen
+      <input id="seek" type="range" min="0" max="1000" value="0">
+    </label>
+    <p id="position" class="position" role="status"></p>
+  </div>
+
+  <p id="status" class="status" role="status">…</p>
+
+  <section class="meter">
+    <div class="meter-label">Free listening today</div>
+    <div class="meter-bar"><span id="meter-fill"></span></div>
+    <div id="meter-text" class="meter-text">…</div>
+    <p class="hint">60 minutes free every day — the allowance
+    renews at midnight. Listening time is metered on
+    this device only.</p>
+  </section>
+
+  <section class="voices">
+    <div class="meter-label">Reading voice</div>
+    <label class="seek-label" for="voice-pick">Voice
+      <select id="voice-pick"></select>
+    </label>
+    <p class="hint">DogEar&rsquo;s own voice leads. Pick any voice
+    that lives on your device — DogEar never uses a network voice,
+    so the text you read stays on your machine. Your choice is
+    remembered, and switching voice keeps your place.</p>
+  </section>
+
+  <footer>
+    <span>DogEar by 2351485 ALBERTA INC. (AIMLDS)</span>
+    <a href="https://getdogear.app" target="_blank" rel="noopener">getdogear.app</a>
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>
