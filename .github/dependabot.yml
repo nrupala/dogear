@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Dependabot: keeps the GitHub Actions pins, the Gradle build, and the
+# npm lint/test tooling current. Added 2026-11-07 — the repo had no
+# dependency-update tool configured (OpenSSF Scorecard
+# DependencyUpdateTool finding).
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "gradle"
+    directory: "/android"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "npm"
+    directory: "/extension/tests"
+    schedule:
+      interval: "weekly"

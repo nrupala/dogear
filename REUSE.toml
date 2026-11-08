@@ -28,6 +28,8 @@ SPDX-License-Identifier = "Apache-2.0"
 path = [
     "android/gradle/wrapper/gradle-wrapper.jar",
     "android/gradle/wrapper/gradle-wrapper.properties",
+    "android/gradlew",
+    "android/gradlew.bat",
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "Gradle Inc."
@@ -36,6 +38,15 @@ SPDX-License-Identifier = "Apache-2.0"
 # Generated lockfile — produced from package.json (AGPL-3.0-or-later) by npm.
 [[annotations]]
 path = "package-lock.json"
+precedence = "override"
+SPDX-FileCopyrightText = "2026 2351485 ALBERTA INC."
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+# Generated bundle manifest — produced by android/tools/bundle_web.py
+# from the committed tree (sha256 + size per staged file); a generated
+# project file, declared here because JSON cannot carry a header.
+[[annotations]]
+path = "android/bundle-manifest.json"
 precedence = "override"
 SPDX-FileCopyrightText = "2026 2351485 ALBERTA INC."
 SPDX-License-Identifier = "AGPL-3.0-or-later"

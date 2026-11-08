@@ -1,7 +1,21 @@
-// Copyright 2019 Google Inc.
-// SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
-//
-// SPDX-License-Identifier: AGPL-3.0-or-later
+/*
+ * Copyright 2019 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+  * SPDX-FileCopyrightText: 2019 Google Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+*/
 
 import groovy.xml.MarkupBuilder
 
@@ -46,8 +60,8 @@ android {
         applicationId "app.getdogear"
         minSdkVersion 24
         targetSdkVersion 36
-        versionCode 2
-        versionName "1.0.1"
+        versionCode 7
+        versionName "1.1.0-beta.5"
 
         // The name for the application
         resValue "string", "appName", twaManifest.name
@@ -142,11 +156,18 @@ android {
     buildTypes {
         release {
             minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
+    }
+    // The bundled voice pack ships as assets: keep its model and
+    // WASM bytes uncompressed (they are already dense; the asset
+    // loader streams them as-is).
+    aaptOptions {
+        noCompress 'onnx', 'wasm'
     }
     lintOptions {
         checkReleaseBuilds false
@@ -196,7 +217,24 @@ repositories {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
-    
+
         implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.4'
-    
+
+    // Background playback (v1.1.0): the native SpeechService builds its
+    // media notification with NotificationCompat/MediaStyle and holds a
+    // MediaSession for lock-screen + media-button controls.
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.media:media:1.7.0'
+
+    // Bundled app (v1.1.0-beta.2): WebViewAssetLoader serves the
+    // bundled web tree under the app's real origin (BundledAssets).
+    implementation 'androidx.webkit:webkit:1.12.1'
+
+    // App-first scaffolding (v1.1.0-beta.5): PlayerCore + MarksStore
+    // are Android-free by design; their transitions are covered by
+    // plain JVM unit tests (src/test). The real org.json shadows
+    // the android.jar stub on the unit-test classpath.
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20231013'
+
 }

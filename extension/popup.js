@@ -12,10 +12,15 @@
 
 var FREE_MINUTES = 600;
 
-function send(cmd) {
+function send(cmd, extra) {
   return new Promise(function (resolve) {
     try {
-      chrome.runtime.sendMessage({ fromPopup: true, cmd: cmd }, function (r) {
+      var msg = { fromPopup: true, cmd: cmd };
+      if (extra) {
+        if (extra.fraction !== undefined) msg.fraction = extra.fraction;
+        if (extra.voiceURI !== undefined) msg.voiceURI = extra.voiceURI;
+      }
+      chrome.runtime.sendMessage(msg, function (r) {
         if (chrome.runtime.lastError) {
           resolve({ ok: false, error: chrome.runtime.lastError.message });
         } else {
@@ -37,23 +42,53 @@ function stateText(r) {
   if (r.ok === false && r.error) {
     return 'DogEar can\u2019t run on this page (' + r.error + ')';
   }
+  var base;
   switch (r.state) {
     case 'playing':
-      return 'Reading aloud\u2026';
+      base = 'Reading aloud\u2026';
+      break;
     case 'paused':
-      return 'Paused — your place is kept.';
+      base = 'Paused \u2014 your place is kept.';
+      break;
     case 'idle':
-      return 'Stopped — your place is kept.';
+      base = 'Stopped \u2014 your place is kept.';
+      break;
     default:
-      return 'Ready. Pick \u201CRead this page\u201D to start.';
+      base = 'Ready. Pick \u201CRead this page\u201D to start.';
+  }
+  if (r.position && r.position.paragraphs) {
+    base +=
+      ' Paragraph ' +
+      (r.position.paragraph + 1) +
+      ' of ' +
+      r.position.paragraphs +
+      '.';
+  }
+  return base;
+}
+
+function reflect(r) {
+  setStatus(stateText(r));
+  var pos = document.getElementById('position');
+  if (pos) {
+    pos.textContent =
+      r && r.position && r.position.paragraphs
+        ? 'Paragraph ' +
+          (r.position.paragraph + 1) +
+          ' of ' +
+          r.position.paragraphs
+        : '';
+  }
+  var seek = document.getElementById('seek');
+  if (seek && r && typeof r.progress === 'number' &&
+      document.activeElement !== seek) {
+    seek.value = String(Math.round(r.progress * 1000));
   }
 }
 
 function wire(id, cmd) {
   document.getElementById(id).addEventListener('click', function () {
-    send(cmd).then(function (r) {
-      setStatus(stateText(r));
-    });
+    send(cmd).then(reflect);
   });
 }
 
@@ -79,32 +114,58 @@ function renderMeter() {
   });
 }
 
-function renderVoices() {
-  var list = document.getElementById('voice-list');
+/* The voice picker (1.1.0): DogEar's own voice leads, then the
+   system default, then every on-device voice this browser
+   reports — the same list the page's reader resolves against.
+   The choice persists in the extension's storage (the content
+   script reads it when a reader starts, and applies it live to
+   a running reader); switching never moves the place. */
+function renderVoicePicker() {
+  var sel = document.getElementById('voice-pick');
+  if (!sel) return;
   function fill() {
     var voices = [];
     try {
       voices = window.speechSynthesis.getVoices() || [];
     } catch (e) {}
-    list.innerHTML = '';
-    if (!voices.length) {
-      var li = document.createElement('li');
-      li.textContent = 'No voices reported by this browser yet.';
-      list.appendChild(li);
-      return;
-    }
-    voices.slice(0, 40).forEach(function (v) {
-      var li = document.createElement('li');
-      li.textContent =
-        v.name + ' (' + v.lang + ')' + (v.localService ? ' — on device' : '');
-      if (v.localService) li.className = 'on-device';
-      list.appendChild(li);
+    chrome.storage.local.get(['dogearVoiceUri'], function (o) {
+      var pref = (o && o.dogearVoiceUri) || 'dogear:default';
+      sel.innerHTML = '';
+      function group(label) {
+        var g = document.createElement('optgroup');
+        g.label = label;
+        sel.appendChild(g);
+        return g;
+      }
+      function opt(parent, value, label) {
+        var el = document.createElement('option');
+        el.value = value;
+        el.textContent = label;
+        parent.appendChild(el);
+      }
+      opt(group('DogEar'), 'dogear:default', 'DogEar voice');
+      var dev = group('This device');
+      opt(dev, 'system:default', 'System default voice');
+      var seen = {};
+      voices.forEach(function (v) {
+        if (!v || !v.localService || !v.voiceURI || seen[v.voiceURI]) {
+          return;
+        }
+        seen[v.voiceURI] = true;
+        opt(dev, v.voiceURI, v.name + ' (' + v.lang + ')');
+      });
+      sel.value = pref;
+      if (sel.value !== pref) sel.value = 'dogear:default';
     });
   }
   fill();
   try {
     window.speechSynthesis.onvoiceschanged = fill;
   } catch (e) {}
+  sel.addEventListener('change', function () {
+    chrome.storage.local.set({ dogearVoiceUri: sel.value });
+    send('set-voice', { voiceURI: sel.value }).then(reflect);
+  });
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -112,9 +173,17 @@ document.addEventListener('DOMContentLoaded', function () {
   wire('btn-read-selection', 'read-selection');
   wire('btn-toggle', 'toggle');
   wire('btn-stop', 'stop');
+  wire('btn-prev-para', 'prev-paragraph');
+  wire('btn-next-para', 'next-paragraph');
+  var seek = document.getElementById('seek');
+  if (seek) {
+    seek.addEventListener('change', function () {
+      send('seek-fraction', {
+        fraction: (parseInt(seek.value, 10) || 0) / 1000,
+      }).then(reflect);
+    });
+  }
   renderMeter();
-  renderVoices();
-  send('state').then(function (r) {
-    setStatus(stateText(r));
-  });
+  renderVoicePicker();
+  send('state').then(reflect);
 });

@@ -1,10 +1,9 @@
+<!DOCTYPE html>
 <!--
 SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
 
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
-
-<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -24,6 +23,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
       <button id="btn-toggle" type="button">Pause / Resume</button>
       <button id="btn-stop" type="button">Stop</button>
     </div>
+    <div class="row">
+      <button id="btn-prev-para" type="button">&#9198; Previous paragraph</button>
+      <button id="btn-next-para" type="button">Next paragraph &#9197;</button>
+    </div>
+    <label class="seek-label" for="seek">Where to listen
+      <input id="seek" type="range" min="0" max="1000" value="0">
+    </label>
+    <p id="position" class="position" role="status"></p>
   </div>
 
   <p id="status" class="status" role="status">…</p>
@@ -32,18 +39,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     <div class="meter-label">Free listening this month</div>
     <div class="meter-bar"><span id="meter-fill"></span></div>
     <div id="meter-text" class="meter-text">…</div>
-    <p class="hint">600 minutes free every month. The one-time unlock
-    (US$24.99) in the DogEar app removes the limit — your device's voices
-    are never sold; the charge is for heavy use of the app.</p>
+    <p class="hint">600 minutes free every month — the allowance
+    renews on the first of the month. Listening time is metered on
+    this device only.</p>
   </section>
 
   <section class="voices">
-    <div class="meter-label">Your computer's voices</div>
-    <ul id="voice-list" class="voice-list"></ul>
-    <p class="hint">DogEar reads with a voice that lives on your device
-    (the reader-core rule: on-device voices first), so the text you read
-    stays on your machine. To change the voice, change your system's
-    default voice in your OS settings.</p>
+    <div class="meter-label">Reading voice</div>
+    <label class="seek-label" for="voice-pick">Voice
+      <select id="voice-pick"></select>
+    </label>
+    <p class="hint">DogEar&rsquo;s own voice leads. Pick any voice
+    that lives on your device — DogEar never uses a network voice,
+    so the text you read stays on your machine. Your choice is
+    remembered, and switching voice keeps your place.</p>
   </section>
 
   <footer>

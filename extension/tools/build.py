@@ -1,9 +1,8 @@
-#!/usr/bin/env python3
-
 # SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+#!/usr/bin/env python3
 """Build the DogEar extension store zips from the one source tree.
 
 One build produces all three store packages (the owner's CI doctrine —
@@ -13,8 +12,14 @@ the same script runs locally and in GitHub Actions):
   build/dogear-extension-edge-<version>.zip     (same Chromium build)
   build/dogear-extension-firefox-<version>.zip  (manifest.firefox.json)
 
-Each zip carries the manifest at its root, the payload files flat in the
-extension layout, and nothing else: no tools, no tests, no README.
+The payload is an ALLOWLIST (PAYLOAD_FILES): exactly the extension's
+runtime files and nothing else. The previous build walked the tree and
+shipped whatever it found, which swept job scratch (CI logs, helper
+scripts, merge artifacts) into the store zips — Gemini pre-store BLOCK
+finding 2, 2026-10-30. With an allowlist, a scratch file sitting in the
+source root can never enter a zip again; a new runtime file must be
+added to the list deliberately, in the same commit that adds the file.
+tools/verify.py --zips independently enforces the same set.
 """
 import json
 import shutil
@@ -25,22 +30,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build"
 
-EXCLUDE_DIRS = {"tools", "tests", "build", "__pycache__"}
-EXCLUDE_FILES = {"README.md", ".gitignore"}
-
-
-def payload_files():
-    files = []
-    for p in sorted(ROOT.rglob("*")):
-        if not p.is_file():
-            continue
-        rel = p.relative_to(ROOT)
-        if rel.parts[0] in EXCLUDE_DIRS:
-            continue
-        if rel.name in EXCLUDE_FILES:
-            continue
-        files.append(rel)
-    return files
+# The complete runtime payload, relative to the source root. The
+# manifest is staged separately per flavour (manifest.json at zip
+# root), so neither manifest file appears here.
+PAYLOAD_FILES = [
+    "background.js",
+    "content.js",
+    "popup.html",
+    "popup.js",
+    "popup.css",
+    "bar.css",
+    "icons/icon-16.png",
+    "icons/icon-32.png",
+    "icons/icon-48.png",
+    "icons/icon-128.png",
+    "vendor/reader-core/reader-core.js",
+    "vendor/reader-core/reader-core.css",
+]
 
 
 def stage(name, manifest_src):
@@ -48,12 +54,13 @@ def stage(name, manifest_src):
     if stage_dir.exists():
         shutil.rmtree(stage_dir)
     stage_dir.mkdir(parents=True)
-    for rel in payload_files():
-        if rel.name in ("manifest.json", "manifest.firefox.json"):
-            continue
+    for rel in PAYLOAD_FILES:
+        src = ROOT / rel
+        if not src.is_file():
+            raise SystemExit(f"payload file missing from tree: {rel}")
         dest = stage_dir / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(ROOT / rel, dest)
+        shutil.copyfile(src, dest)
     shutil.copyfile(ROOT / manifest_src, stage_dir / "manifest.json")
     return stage_dir
 

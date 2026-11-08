@@ -98,3 +98,5 @@
   color: rgba(190, 225, 220, 0.55);
 }
 #dogear-ext-bar .dge-meter { color: rgba(190, 225, 220, 0.8); }
+.dge-pos{font-size:.82em;opacity:.85;padding:.15rem .2rem 0}
+#dogear-ext-bar .rc-para-reading{background:rgba(111,242,220,.13);border-radius:4px}

@@ -22,3 +22,8 @@
 .rc-progress{flex:1 1 100%;height:4px;background:#e4e1d9;border-radius:2px;overflow:hidden}
 .rc-fill{display:block;height:100%;width:0;background:#1a73e8;transition:width .25s ease}
 .rc-sent.rc-reading{background:#fff3c4;border-radius:2px}
+.rc-prev,.rc-next{font:inherit;font-size:.9rem;font-weight:700;color:#1a73e8;background:transparent;border:1px solid #1a73e8;border-radius:6px;padding:.5rem .7rem;cursor:pointer}
+.rc-prev:disabled,.rc-next:disabled{opacity:.35;cursor:default}
+.rc-seek{flex:1 1 12rem;accent-color:#1a73e8;cursor:pointer}
+.rc-pos{flex:1 1 100%;font-size:.82rem;color:#4a4a4a}
+.rc-para-reading{background:rgba(26,115,232,.07);border-radius:4px}

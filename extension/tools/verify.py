@@ -1,9 +1,8 @@
-#!/usr/bin/env python3
-
 # SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+#!/usr/bin/env python3
 """Verify the DogEar extension tree (and, with --zips, the built zips).
 
 Checks, all hard failures:
@@ -17,7 +16,10 @@ Checks, all hard failures:
     sendBeacon / remote script or image URLs (fabric doctrine — the
     extension must work if every external service vanished tonight);
   - with --zips: each built zip has manifest.json at its root, parses,
-    and contains the full payload incl. icons and the pinned engine.
+    and contains EXACTLY the runtime payload — the full allowlist incl.
+    icons and the pinned engine, and no other file. An unexpected file
+    in a zip is a hard failure (the job-scratch contamination class,
+    Gemini pre-store BLOCK finding 2, 2026-10-30).
 """
 import hashlib
 import json
@@ -84,6 +86,12 @@ def main():
     ])
     for rel in sorted(refs):
         check((ROOT / rel).is_file(), f"referenced file exists: {rel}")
+        if rel.endswith(".png") and (ROOT / rel).is_file():
+            # A 0-byte icon passed this gate in the tree once (the
+            # original icon-16.png) and blocked the store submission;
+            # existence is not validity.
+            check((ROOT / rel).stat().st_size > 0,
+                  f"referenced icon is non-empty: {rel}")
 
     pin = json.loads((ROOT / "vendor/reader-core/PIN.json").read_text())
     for fname, want in (pin.get("files") or {}).items():
@@ -101,6 +109,25 @@ def main():
               (f" (found {bad})" if bad else ""))
 
     if "--zips" in sys.argv:
+        # The exact runtime payload every store zip must carry: the
+        # per-flavour manifest at the root plus the allowlist that
+        # tools/build.py stages. Anything more is contamination;
+        # anything less is an incomplete package.
+        expected = {
+            "manifest.json",
+            "background.js",
+            "content.js",
+            "popup.html",
+            "popup.js",
+            "popup.css",
+            "bar.css",
+            "icons/icon-16.png",
+            "icons/icon-32.png",
+            "icons/icon-48.png",
+            "icons/icon-128.png",
+            "vendor/reader-core/reader-core.js",
+            "vendor/reader-core/reader-core.css",
+        }
         version = man["version"]
         for name in ("chrome", "edge", "firefox"):
             zp = ROOT / "build" / f"dogear-extension-{name}-{version}.zip"
@@ -114,13 +141,18 @@ def main():
                 parsed = json.loads(z.read("manifest.json"))
                 check(parsed.get("version") == version,
                       f"{name}: zip manifest version {version}")
-                for need in ("content.js", "background.js", "popup.html",
-                             "icons/icon-128.png",
-                             "vendor/reader-core/reader-core.js"):
-                    check(need in names, f"{name}: zip contains {need}")
-                check(not any(n.startswith(("tools/", "tests/"))
-                              for n in names),
-                      f"{name}: zip carries no tools/tests")
+                got = set(names)
+                for need in sorted(expected):
+                    check(need in got, f"{name}: zip contains {need}")
+                extras = sorted(got - expected)
+                check(not extras,
+                      f"{name}: zip contains no unexpected files" +
+                      (f" (found {extras})" if extras else ""))
+                for icon in ("icons/icon-16.png", "icons/icon-32.png",
+                             "icons/icon-48.png", "icons/icon-128.png"):
+                    if icon in got:
+                        check(len(z.read(icon)) > 0,
+                              f"{name}: {icon} is a non-empty image")
 
     print("FAILURES: " + str(len(failures)))
     return 1 if failures else 0

@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: lint
+
+# The linter the 2026-11-06 OpenSSF census found missing for
+# this repo. Runs on every push (any branch) so a run is
+# always read back against the commit that fired it.
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  eslint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+      - name: ESLint (extension sources + reader engine)
+        run: npx --yes eslint@9 --config extension/eslint.config.mjs "extension/*.js" "extension/vendor/**/*.js"

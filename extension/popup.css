@@ -55,3 +55,7 @@ footer {
   color: rgba(190, 225, 220, 0.55);
 }
 footer a { color: #6ff2dc; text-decoration: none; border-bottom: 1px dotted rgba(111, 242, 220, 0.4); }
+.position{font-size:.85em;margin:.3rem 0 0;min-height:1em}
+.seek-label{display:block;font-size:.85em;margin:.45rem 0}
+.seek-label input[type="range"]{width:100%}
+.seek-label select{width:100%;font:inherit;margin-top:.2rem}

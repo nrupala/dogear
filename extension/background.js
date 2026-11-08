@@ -16,6 +16,8 @@
 
 var MENU_PAGE = 'dogear-read-page';
 var MENU_SELECTION = 'dogear-read-selection';
+var MENU_FROM_HERE = 'dogear-read-from-here';
+var MENU_THIS_ONLY = 'dogear-read-this-only';
 
 function createMenus() {
   if (!chrome.contextMenus) return;
@@ -28,6 +30,16 @@ function createMenus() {
     chrome.contextMenus.create({
       id: MENU_SELECTION,
       title: 'Read selection with DogEar',
+      contexts: ['selection'],
+    });
+    chrome.contextMenus.create({
+      id: MENU_FROM_HERE,
+      title: 'Read from here with DogEar',
+      contexts: ['page', 'selection'],
+    });
+    chrome.contextMenus.create({
+      id: MENU_THIS_ONLY,
+      title: 'Read this only with DogEar',
       contexts: ['selection'],
     });
   });
@@ -54,13 +66,17 @@ function inject(tabId) {
     });
 }
 
-function runCommand(tab, cmd) {
+function runCommand(tab, cmd, extra) {
   if (!tab || typeof tab.id !== 'number') {
     return Promise.resolve({ ok: false, error: 'No active tab.' });
   }
   var payload = { dogear: true, cmd: cmd };
+  if (extra) {
+    if (extra.fraction !== undefined) payload.fraction = extra.fraction;
+    if (extra.voiceURI !== undefined) payload.voiceURI = extra.voiceURI;
+  }
   var chain = inject(tab.id);
-  if (cmd === 'read-selection') {
+  if (cmd === 'read-selection' || cmd === 'read-this-only') {
     chain = chain
       .then(function () {
         return chrome.scripting.executeScript({
@@ -96,6 +112,20 @@ function activeTab() {
 if (chrome.contextMenus && chrome.contextMenus.onClicked) {
   chrome.contextMenus.onClicked.addListener(function (info, tab) {
     if (info.menuItemId === MENU_PAGE) runCommand(tab, 'read-page');
+    if (info.menuItemId === MENU_FROM_HERE) {
+      runCommand(tab, 'read-from-here');
+    }
+    if (info.menuItemId === MENU_THIS_ONLY) {
+      runCommand(tab, 'read-this-only').then(function (r) {
+        if (r && !r.ok && info.selectionText) {
+          chrome.tabs.sendMessage(tab.id, {
+            dogear: true,
+            cmd: 'read-this-only',
+            text: info.selectionText,
+          });
+        }
+      });
+    }
     if (info.menuItemId === MENU_SELECTION) {
       var t = tab;
       // The selection text comes from the page itself (see runCommand);
@@ -124,13 +154,35 @@ if (chrome.commands && chrome.commands.onCommand) {
 }
 
 // Popup channel: the popup asks for a command against the active tab, or
-// for the reader's current state.
+// for the reader's current state. The sender must be this extension
+// itself, the message must carry the popup flag, and the command must
+// be on the allowlist — anything else is ignored, not answered.
+var POPUP_COMMANDS = {
+  'read-page': true,
+  'read-selection': true,
+  'read-from-here': true,
+  'read-this-only': true,
+  'next-paragraph': true,
+  'prev-paragraph': true,
+  'seek-fraction': true,
+  'set-voice': true,
+  voices: true,
+  toggle: true,
+  stop: true,
+  state: true,
+};
+
 if (chrome.runtime && chrome.runtime.onMessage) {
   chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     if (!msg || msg.fromPopup !== true) return;
+    if (!sender || sender.id !== chrome.runtime.id) return;
+    if (!POPUP_COMMANDS[msg.cmd]) return;
     activeTab()
       .then(function (tab) {
-        return runCommand(tab, msg.cmd);
+        return runCommand(tab, msg.cmd, {
+          fraction: msg.fraction,
+          voiceURI: msg.voiceURI,
+        });
       })
       .then(function (r) {
         sendResponse(r || { ok: false, error: 'No response from the page.' });
