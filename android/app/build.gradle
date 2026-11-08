@@ -223,7 +223,7 @@ dependencies {
     // Background playback (v1.1.0): the native SpeechService builds its
     // media notification with NotificationCompat/MediaStyle and holds a
     // MediaSession for lock-screen + media-button controls.
-    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.core:core:1.19.1'
     implementation 'androidx.media:media:1.7.0'
 
     // Bundled app (v1.1.0-beta.2): WebViewAssetLoader serves the
