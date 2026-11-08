@@ -10,7 +10,7 @@
  */
 'use strict';
 
-var FREE_MINUTES = 600;
+var FREE_MINUTES = 60;
 
 function send(cmd, extra) {
   return new Promise(function (resolve) {
@@ -92,15 +92,21 @@ function wire(id, cmd) {
   });
 }
 
-function monthKey() {
+function dayKey() {
   var d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  return (
+    d.getFullYear() +
+    '-' +
+    String(d.getMonth() + 1).padStart(2, '0') +
+    '-' +
+    String(d.getDate()).padStart(2, '0')
+  );
 }
 
 function renderMeter() {
   chrome.storage.local.get(['dogearMeter', 'dogearUnlocked'], function (o) {
     o = o || {};
-    var used = ((o.dogearMeter || {})[monthKey()] || 0) / 60;
+    var used = ((o.dogearMeter || {})[dayKey()] || 0) / 60;
     var fill = document.getElementById('meter-fill');
     var text = document.getElementById('meter-text');
     if (o.dogearUnlocked) {
