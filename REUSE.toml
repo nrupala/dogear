@@ -35,9 +35,12 @@ precedence = "override"
 SPDX-FileCopyrightText = "Gradle Inc."
 SPDX-License-Identifier = "Apache-2.0"
 
-# Generated lockfile — produced from package.json (AGPL-3.0-or-later) by npm.
+# Generated lockfiles — produced from package.json (AGPL-3.0-or-later) by npm.
 [[annotations]]
-path = "package-lock.json"
+path = [
+    "package-lock.json",
+    "extension/tests/package-lock.json",
+]
 precedence = "override"
 SPDX-FileCopyrightText = "2026 2351485 ALBERTA INC."
 SPDX-License-Identifier = "AGPL-3.0-or-later"
