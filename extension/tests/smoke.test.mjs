@@ -216,6 +216,23 @@ check(resp && resp.ok === true && resp.position && resp.position.paragraph === 3
 check(spoken[spoken.length - 1].includes('The final paragraph'),
   'nav: speech begins at that paragraph');
 
+// Sentence-level aim (2026-11-07 fix): a right-click ON the second
+// sentence of a paragraph starts at that sentence, not back at the
+// paragraph top — the owner's live finding on the 1.7.0 RC. The
+// place line still reports the paragraph. (The live spans are the
+// innermost .rc-sent set: this page has hosted two readers by now,
+// and a recreated engine wraps its spans inside the previous set —
+// a real click lands on the inner text, never the stale wrapper.)
+const liveSpans = [...paras[1].querySelectorAll('.rc-sent')]
+  .filter((s) => !s.querySelector('.rc-sent'));
+check(liveSpans.length === 2, 'nav: fixture paragraph carries two live sentences');
+liveSpans[1].dispatchEvent(new window.MouseEvent('contextmenu', { bubbles: true }));
+resp = await command({ dogear: true, cmd: 'read-from-here' });
+check(resp && resp.ok === true && resp.position && resp.position.paragraph === 2,
+  'nav: read-from-here on a sentence keeps the paragraph place');
+check(spoken[spoken.length - 1].includes('Place is kept per page'),
+  'nav: speech begins at the pointed sentence, not the paragraph top');
+
 resp = await command({ dogear: true, cmd: 'voices' });
 check(resp && Array.isArray(resp.voices), 'nav: voices command reports the list');
 const idxBeforeVoice = resp && resp.position ? resp.position.index : null;

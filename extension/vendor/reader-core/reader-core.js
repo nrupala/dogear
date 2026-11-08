@@ -33,8 +33,14 @@
   //   - skip: nextParagraph / previousParagraph;
   //   - ranges: playRangeParagraphs / playSelection stop AT the range
   //     end and keep the place there;
-  //   - gestures: right-click or long-press on a paragraph starts
-  //     reading from that paragraph (opts.navGestures);
+  //   - gestures: right-click or long-press starts reading from the
+  //     point (opts.navGestures) — at the SENTENCE under the point
+  //     when it lands inside one, else at the paragraph start;
+  //   - sentence starts: seekFromNode / seekToSentence /
+  //     sentenceAt resolve a pointed start (the shells'
+  //     read-from-here) to the sentence containing the point, with
+  //     the paragraph as the fallback for a point on the paragraph
+  //     itself. playSelection already starts at its anchor sentence;
   //   - voice choice: opts.voiceURI ('dogear:default' | 'system:default'
   //     | a voiceURI) + setVoice(), which keeps the unit index;
   //   - opts.onPosition(info) reports {index, count, paragraph,
@@ -70,7 +76,8 @@
     onPosition: null,
     // Optional callback when a read-this-only range finishes.
     onRangeEnd: null,
-    // Right-click / long-press on a paragraph starts reading there.
+    // Right-click / long-press starts reading at the pointed
+    // sentence (or the paragraph, when the point is the paragraph).
     navGestures: true,
     // Max characters per speech chunk.
     chunkSize: 240,
@@ -565,13 +572,48 @@
       seekToUnit(range.start, { resume: true, keepRange: true });
       return true;
     }
-    function selectionSpan(node) {
+    // The sentence containing a DOM node (a selection endpoint, an
+    // event target, a shell's tracked click target), or -1 when the
+    // node is not inside one of this reader's sentence spans.
+    function sentenceIndexForNode(node) {
       var el = node && node.nodeType === 1 ? node : (node && node.parentElement);
       if (!el || !el.closest) return -1;
       var sp = el.closest('.rc-sent');
-      if (!sp) return -1;
+      if (!sp || !root.contains(sp)) return -1;
       for (var i = 0; i < sents.length; i++) if (sents[i].el === sp) return i;
       return -1;
+    }
+    function selectionSpan(node) {
+      return sentenceIndexForNode(node);
+    }
+    function seekToSentence(si, o) {
+      si = Math.round(Number(si) || 0);
+      if (si < 0 || si >= sents.length || sentStart[si] === undefined) return -1;
+      return seekToUnit(sentStart[si], o);
+    }
+    function paraFromNode(node) {
+      var t = node && node.nodeType === 3 ? node.parentNode : node;
+      if (!t || !t.closest) return -1;
+      var b = t.closest('[data-rc-para]');
+      if (!b || !root.contains(b)) return -1;
+      var p = parseInt(b.getAttribute('data-rc-para'), 10);
+      return isNaN(p) ? -1 : p;
+    }
+    // One resolution rule for every POINTED start (the engine's own
+    // gestures; the shells' read-from-here): the sentence under the
+    // point wins, so aiming at a paragraph's third sentence starts
+    // there — not back at the paragraph top (the owner's live
+    // finding on the 1.7.0 RC, 2026-11-07). The paragraph is the
+    // fallback for a point on the paragraph itself: its margin, its
+    // action row, the block element. Returns the chunk index
+    // playback moved to, or -1 when the point is not in the reading
+    // matter at all.
+    function seekFromNode(node, o) {
+      var si = sentenceIndexForNode(node);
+      if (si >= 0) return seekToSentence(si, o);
+      var p = paraFromNode(node);
+      if (p < 0) return -1;
+      return seekToParagraph(p, o);
     }
     function playSelection() {
       var sel = null;
@@ -607,31 +649,30 @@
       return true;
     }
 
-    // ---- paragraph gestures (0.3.0) ------------------------------------------
+    // ---- pointed-start gestures (0.3.0) ---------------------------------------
+    // Right-click / long-press starts at the pointed SENTENCE when
+    // the point lands inside one, else at its paragraph — the same
+    // seekFromNode rule the shells' read-from-here uses.
     var lpTimer = null;
-    function paraFromEvent(e) {
-      var t = e && e.target;
-      if (!t || !t.closest) return -1;
-      var b = t.closest('[data-rc-para]');
-      if (!b || !root.contains(b)) return -1;
-      var p = parseInt(b.getAttribute('data-rc-para'), 10);
-      return isNaN(p) ? -1 : p;
-    }
+    var lpNode = null;
     function onContextMenu(e) {
-      var p = paraFromEvent(e);
-      if (p < 0) return;
+      if (!e || seekFromNode(e.target, { resume: true }) < 0) return;
       e.preventDefault();
-      seekToParagraph(p, { resume: true });
     }
-    function clearLp() { if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; } }
+    function clearLp() {
+      if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+      lpNode = null;
+    }
     function onPointerDown(e) {
       if (e.pointerType === 'mouse') return;
-      var p = paraFromEvent(e);
-      if (p < 0) return;
+      if (sentenceIndexForNode(e.target) < 0 && paraFromNode(e.target) < 0) return;
       clearLp();
+      lpNode = e.target;
       lpTimer = setTimeout(function () {
         lpTimer = null;
-        seekToParagraph(p, { resume: true });
+        var node = lpNode;
+        lpNode = null;
+        if (node) seekFromNode(node, { resume: true });
       }, 600);
     }
     if (opts.navGestures) {
@@ -696,8 +737,11 @@
         });
       },
       paragraphAt: paraOf,
+      sentenceAt: sentenceIndexForNode,
       seekToUnit: seekToUnit,
       seekToParagraph: seekToParagraph,
+      seekToSentence: seekToSentence,
+      seekFromNode: seekFromNode,
       seekFraction: function (f, o) { return seekToUnit(unitForFraction(f, chunks.length), o); },
       unitForFraction: function (f) { return unitForFraction(f, chunks.length); },
       nextParagraph: nextParagraph,

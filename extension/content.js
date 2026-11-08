@@ -43,7 +43,7 @@
   var lastTick = 0;
   // The element the listener last right-clicked (captured before
   // the browser menu opens). It is how "Read from here" knows its
-  // paragraph once DogEar is running on the page; a first-ever
+  // sentence (or paragraph) once DogEar is running on the page; a first-ever
   // right-click happens before this script is injected, so it
   // carries no target — that case is answered honestly in
   // doFromHere().
@@ -397,12 +397,22 @@
     return startReader(selEl, 'selection');
   }
 
-  // "Read from here": start at the paragraph the listener
-  // right-clicked. With no tracked target (the first-ever
+  // "Read from here": start at the place the listener
+  // right-clicked — the SENTENCE under the point when it lands
+  // inside one (the engine's seekFromNode rule), else its
+  // paragraph. With no tracked target (the first-ever
   // right-click on a page DogEar has not run on yet) the reader
   // starts the page and says how to aim it — it never guesses a
   // paragraph.
   function doFromHere() {
+    if (
+      reader &&
+      lastContextEl &&
+      reader.seekFromNode(lastContextEl, { resume: true }) >= 0
+    ) {
+      showNote('');
+      return true;
+    }
     var ix = paragraphIndexFor(lastContextEl);
     if (ix == null) {
       showNote(
