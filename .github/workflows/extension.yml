@@ -38,7 +38,7 @@ jobs:
       # correctness rules (no-undef, no-unreachable, ...). See the
       # calibration notes in eslint.config.mjs.
       - name: Install lint tooling
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Lint the extension surface
         run: npm run lint
@@ -62,7 +62,7 @@ jobs:
       - name: Smoke test (jsdom drives the real payload)
         working-directory: extension/tests
         run: |
-          npm install --no-audit --no-fund
+          npm ci --no-audit --no-fund
           node smoke.test.mjs
 
       - name: Build the three store zips
