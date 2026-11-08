@@ -58,7 +58,7 @@ jobs:
           python3 tools/bundle_web.py --stage \
             --manifest bundle-manifest.json \
             --out app/src/main/assets/web \
-            --from-live https://app.getdogear.app
+            --from-live https://dogear-staging.nrupalakolkar.workers.dev
 
       - name: Restore release keystore from secrets
         env:
