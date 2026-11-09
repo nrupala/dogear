@@ -8,7 +8,7 @@
     "lint": "eslint extension/background.js extension/content.js extension/popup.js extension/vendor/reader-core/reader-core.js extension/tests/smoke.test.mjs"
   },
   "devDependencies": {
-    "eslint": "^9.0.0",
+    "eslint": "^10.14.0",
     "globals": "^15.0.0"
   }
 }

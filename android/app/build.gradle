@@ -224,7 +224,7 @@ dependencies {
     // media notification with NotificationCompat/MediaStyle and holds a
     // MediaSession for lock-screen + media-button controls.
     implementation 'androidx.core:core:1.13.1'
-    implementation 'androidx.media:media:1.7.0'
+    implementation 'androidx.media:media:1.8.0'
 
     // Bundled app (v1.1.0-beta.2): WebViewAssetLoader serves the
     // bundled web tree under the app's real origin (BundledAssets).
@@ -235,6 +235,6 @@ dependencies {
     // plain JVM unit tests (src/test). The real org.json shadows
     // the android.jar stub on the unit-test classpath.
     testImplementation 'junit:junit:4.13.2'
-    testImplementation 'org.json:json:20231013'
+    testImplementation 'org.json:json:20260814'
 
 }

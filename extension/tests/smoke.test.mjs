@@ -106,7 +106,7 @@ window.chrome = {
 // ---- load the payload ------------------------------------------------------
 window.eval(read('vendor/reader-core/reader-core.js'));
 check(typeof window.ReaderCore === 'object', 'pinned reader-core loads');
-check(window.ReaderCore.VERSION === '0.3.0', 'engine is the pinned 0.3.0');
+check(window.ReaderCore.VERSION === '0.4.0', 'engine is the pinned 0.4.0');
 window.eval(read('content.js'));
 check(typeof messageListener === 'function', 'content glue registered its listener');
 
