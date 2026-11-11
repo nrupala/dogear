@@ -33,6 +33,15 @@
   // as to the platform's. With no opts.synth, behaviour is
   // byte-for-byte 0.3.0's.
   //
+  // Skip notice (2026-11-10, ship rectification; local pin, same
+  // 0.4.0 line): opts.onChunkSkipped — fired at most ONCE per
+  // reader when an utterance error carries the transport's
+  // ladder-exhaustion mark (the Kokoro driver's whole recovery
+  // ladder failed for that chunk; see DEFAULTS). The chunk is
+  // still skipped by the ordinary error advance; the callback
+  // only lets the shell SAY so, once per document, instead of
+  // the skip passing silently. Unmarked errors never fire it.
+  //
   // 0.3.0 (DogEar navigation + voice, 2026-11-07; local pin, pending
   // upstream — see PIN.json). Carries the 0.2.1 invariants (on-device
   // voices ONLY; caller-supplied storage adapter; refusal via
@@ -93,6 +102,13 @@
     // on-device voice exists on this machine. The shell owns the user
     // message; the engine owns the refusal.
     onNoLocalVoice: null,
+    // Optional callback fired ONCE per reader when a chunk is
+    // skipped because the transport's synthesis recovery ladder
+    // was exhausted for it (the utterance error event carries
+    // ladderExhausted). The shell owns the user message ("that
+    // part was skipped"); the engine owns the signal and the
+    // once-per-reader cap, so a bad document cannot spam it.
+    onChunkSkipped: null,
     // On-device voices only (0.2.1 invariant). A shell may explicitly
     // opt out with localOnly:false; no DogEar shell does.
     localOnly: true,
@@ -334,6 +350,7 @@
 
     // ---- state + position persistence -----------------------------------------
     var state = 'idle', idx = 0, gen = 0, keepAlive = null;
+    var skipNoticeFired = false; // onChunkSkipped cap: once per reader
     var range = null; // {start, end} chunk indexes, end exclusive (0.3.0)
     // Place records go through the shell's adapter when one is given
     // (0.2.1); the page's localStorage is only the default for shells
@@ -494,7 +511,7 @@
       if (voice) u.voice = voice;
       try { u.rate = parseFloat(rateSel.value) || 1; } catch (e) { u.rate = 1; }
       u.onend = function () { if (g !== gen || state !== 'playing') return; progress(i); advance(i, g); };
-      u.onerror = function () {
+      u.onerror = function (ev) {
         if (g !== gen || state !== 'playing') return;
         // Ported from the shipped embed (dogear v1.0.6) — the place-losing
         // defect this engine still carried: on a hidden page an utterance
@@ -507,6 +524,20 @@
           savePos(); gen++; disarm(); unlock();
           state = 'idle'; clearHi(); setPlay();
           return;
+        }
+        // Ladder exhaustion: the transport walked its whole
+        // synthesis recovery ladder for this chunk and it still
+        // failed — the chunk is about to be skipped by the
+        // advance below. Say so, ONCE per reader, through the
+        // shell's callback; every later exhausted chunk in this
+        // document skips quietly (no notice spam).
+        if (ev && ev.ladderExhausted && !skipNoticeFired) {
+          skipNoticeFired = true;
+          if (typeof opts.onChunkSkipped === 'function') {
+            try {
+              opts.onChunkSkipped({ index: i, text: ch.text, error: ev.error || '' });
+            } catch (e) {}
+          }
         }
         advance(i, g);
       };

@@ -34,6 +34,18 @@ is the packaging step that keeps that true mechanically:
 Asset layout mirrors URL paths: "/" -> web/index.html,
 "/privacy" -> web/privacy.html, "/app.js" -> web/app.js,
 "/pack/v1/<rel>" -> web/pack/v1/<rel>.
+
+One route is not served from its source bytes: /sw.js. build.py
+stamps the service worker's shell cache name into the built
+worker (the __SHELL_STAMP__ placeholder in src/sw.js becomes the
+build's shell stamp), so the bytes the worker serves — and the
+bytes dist/build-manifest.json pins — are the STAMPED ones.
+Every read of /sw.js below therefore applies the stamp recorded
+in the dist build manifest (its shell_cache) to the source
+bytes, which reproduces the served bytes exactly. Reading the
+unstamped source instead made --write-manifest report a false
+/sw.js drift against any post-stamping tree (and made --stage
+--from-dir materialize a worker the manifest does not pin).
 """
 import argparse
 import hashlib
@@ -114,12 +126,37 @@ def read_source(app: pathlib.Path, src: str) -> bytes:
     return (app / src).read_bytes()
 
 
+def stamp_sw(raw: bytes, shell_cache: str | None) -> bytes:
+    """Apply build.py's shell stamp to the /sw.js source bytes.
+
+    build.py replaces the __SHELL_STAMP__ placeholder with the
+    stamp suffix of the shell cache name it records in the dist
+    build manifest; doing the same replacement here reproduces
+    the served bytes byte-for-byte. Without a recorded stamp (or
+    without the placeholder) the source bytes pass through, and
+    the manifest cross-check remains the judge."""
+    if not shell_cache:
+        return raw
+    stamp = shell_cache.removeprefix("dogear-app-shell-")
+    if not stamp or stamp == shell_cache:
+        return raw
+    return raw.replace(b"__SHELL_STAMP__", stamp.encode())
+
+
+def read_served(app: pathlib.Path, src: str, shell_cache: str | None) -> bytes:
+    """Source bytes as the worker serves them (see stamp_sw)."""
+    raw = read_source(app, src)
+    if src == "src/sw.js":
+        return stamp_sw(raw, shell_cache)
+    return raw
+
+
 def write_manifest(app: pathlib.Path, routes_only: bool = False) -> dict:
     dist = json.loads((app / "dist" / "build-manifest.json").read_text())
     dist_assets = dist["assets"]
     entries = []
     for route, (src, ctype) in sorted(ROUTES.items()):
-        raw = read_source(app, src)
+        raw = read_served(app, src, dist.get("shell_cache"))
         digest = sha256(raw)
         want = dist_assets.get(route)
         if want is not None and want != digest:
@@ -131,6 +168,7 @@ def write_manifest(app: pathlib.Path, routes_only: bool = False) -> dict:
         return {
             "worker": dist["worker"],
             "worker_sha256": dist["worker_sha256"],
+            "shell_cache": dist.get("shell_cache"),
             "web_version": json.loads((app / "package.json").read_text())["version"],
             "variant": "routes-only",
             "entries": entries,
@@ -156,6 +194,7 @@ def write_manifest(app: pathlib.Path, routes_only: bool = False) -> dict:
     return {
         "worker": dist["worker"],
         "worker_sha256": dist["worker_sha256"],
+        "shell_cache": dist.get("shell_cache"),
         "web_version": json.loads((app / "package.json").read_text())["version"],
         "variant": "full",
         "entries": entries,
@@ -179,6 +218,22 @@ def stage(manifest: dict, out: pathlib.Path, app: pathlib.Path | None,
         else:
             raw = read_source(app, e["source"]) if not e["source"].startswith("dist/") \
                 else (app / e["source"]).read_bytes()
+            if e["source"] == "src/sw.js" and sha256(raw) != e["sha256"]:
+                # The manifest pins the STAMPED service worker (the
+                # bytes the worker serves); the source tree carries
+                # the placeholder. Restamp with the shell cache the
+                # manifest records — falling back to the app tree's
+                # own dist manifest for manifests written before the
+                # field existed — and let the verify below judge.
+                shell_cache = manifest.get("shell_cache")
+                if not shell_cache:
+                    try:
+                        shell_cache = json.loads(
+                            (app / "dist" / "build-manifest.json")
+                            .read_text()).get("shell_cache")
+                    except Exception:
+                        shell_cache = None
+                raw = stamp_sw(raw, shell_cache)
         if len(raw) != e["bytes"] or sha256(raw) != e["sha256"]:
             raise SystemExit(f"VERIFY FAIL {e['route']}: got {len(raw)} bytes "
                              f"sha {sha256(raw)[:16]}…, want {e['bytes']} sha {e['sha256'][:16]}…")
