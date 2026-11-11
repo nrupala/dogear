@@ -1,7 +1,7 @@
 {
   "worker": "dogear-app",
-  "worker_sha256": "5040cb27a95a249e20950750b39e9f8d53e6083bb125c72fbd1f52591e8c0632",
-  "shell_cache": "dogear-app-shell-356480e2b05b",
+  "worker_sha256": "d0890fbd4b6f539cdf7574cdb255263f158a159ed5db11e0fd122adcea6ab48c",
+  "shell_cache": "dogear-app-shell-4bd9ce6c471c",
   "web_version": "1.7.0",
   "variant": "routes-only",
   "entries": [
@@ -9,8 +9,8 @@
       "route": "/",
       "asset": "index.html",
       "type": "text/html; charset=utf-8",
-      "bytes": 19020,
-      "sha256": "af95265f122e3ba0d45edeefdd4df8b3df2775b24e762f0519c33f0c523dd7a4",
+      "bytes": 25800,
+      "sha256": "9ba98025363c675a5dc74c3e6a028246f735c5076da96687fa007443a9f0171c",
       "source": "src/index.html"
     },
     {
@@ -25,16 +25,16 @@
       "route": "/app.css",
       "asset": "app.css",
       "type": "text/css; charset=utf-8",
-      "bytes": 6719,
-      "sha256": "443fa5397b47c9f5b196177addb6ff9d07866b39a297a8508f5dc810ddbd7f40",
+      "bytes": 8570,
+      "sha256": "b71b31041f95a700fc932e6bb61b09b86c119d8eeada7c8c6877a34aa0a4c099",
       "source": "src/app.css"
     },
     {
       "route": "/app.js",
       "asset": "app.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 175874,
-      "sha256": "233df6888d857f1a55bdf23d14b544ee4217ffcebfef31b7995075324bb2c1fd",
+      "bytes": 210185,
+      "sha256": "e8c7bc2d4ae3ae81f8c8580cff285b2b9762eafc699139469217ae73851bfabd",
       "source": "src/app.js"
     },
     {
@@ -129,8 +129,8 @@
       "route": "/privacy",
       "asset": "privacy.html",
       "type": "text/html; charset=utf-8",
-      "bytes": 6230,
-      "sha256": "08272d6329e29c230820ea3e5585bc5dacbe25437d2086e18454691d1f286fac",
+      "bytes": 7028,
+      "sha256": "2c9076659b060024c781f6702cab145d1eed3f25908fff5785111ab2358a64e8",
       "source": "src/privacy.html"
     },
     {
@@ -177,17 +177,25 @@
       "route": "/speaker.js",
       "asset": "speaker.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 10851,
-      "sha256": "0833b06dad915c9124707aa514365c7376146de17862bab293ee2198cf38a40a",
+      "bytes": 12145,
+      "sha256": "f14fb4ab1723804747c202234ecf45c475a3ded925557264c9ba3ef9095e8c32",
       "source": "src/speaker.js"
     },
     {
       "route": "/sw.js",
       "asset": "sw.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 4361,
-      "sha256": "2b31e5eec912fe5539dd8b564f40e172edbe5f8e4e3f1894e356a8b2b311bef5",
+      "bytes": 4378,
+      "sha256": "32becf41e37127ce456e58fbf0df5e4b5327d1d661e188101a1c994b94d69402",
       "source": "src/sw.js"
+    },
+    {
+      "route": "/ttspack.js",
+      "asset": "ttspack.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 14873,
+      "sha256": "1732a6ee9a01a4b8ebb80222100d6375436520d33b733907ea052a3654d1f6ee",
+      "source": "src/ttspack.js"
     },
     {
       "route": "/vendor/jszip.min.js",
@@ -230,6 +238,14 @@
       "source": "vendor/ingest/pdf.worker.min.mjs"
     },
     {
+      "route": "/voicefx.js",
+      "asset": "voicefx.js",
+      "type": "text/javascript; charset=utf-8",
+      "bytes": 5653,
+      "sha256": "72560eccbe1b4691db960578800b54e6d6d78a231612c8d5f290efe3ea1c21a7",
+      "source": "src/voicefx.js"
+    },
+    {
       "route": "/voicepack.js",
       "asset": "voicepack.js",
       "type": "text/javascript; charset=utf-8",
@@ -238,5 +254,5 @@
       "source": "src/voicepack.js"
     }
   ],
-  "total_bytes": 2950496
+  "total_bytes": 3016073
 }
