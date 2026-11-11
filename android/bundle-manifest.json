@@ -1,15 +1,16 @@
 {
   "worker": "dogear-app",
-  "worker_sha256": "83293d98c8f755504d168c623fe95c7187fad457eea7c51778f8951f9cc07106",
-  "web_version": "1.6.0",
+  "worker_sha256": "a321a7a45f34818cd6c0b190247b50c1b370043b6a885856080aa30ec935d181",
+  "shell_cache": "dogear-app-shell-163611b7faa2",
+  "web_version": "1.7.0",
   "variant": "routes-only",
   "entries": [
     {
       "route": "/",
       "asset": "index.html",
       "type": "text/html; charset=utf-8",
-      "bytes": 14059,
-      "sha256": "92b0e79c3502a0b4851cbe3510102bbd0d08f57f996354355d8bca970091eb06",
+      "bytes": 19020,
+      "sha256": "af95265f122e3ba0d45edeefdd4df8b3df2775b24e762f0519c33f0c523dd7a4",
       "source": "src/index.html"
     },
     {
@@ -24,32 +25,32 @@
       "route": "/app.css",
       "asset": "app.css",
       "type": "text/css; charset=utf-8",
-      "bytes": 5700,
-      "sha256": "6d16e4f3da1c7ff190752ddc6bec05badc20046a312f12b88dc4d4974bef9963",
+      "bytes": 6719,
+      "sha256": "443fa5397b47c9f5b196177addb6ff9d07866b39a297a8508f5dc810ddbd7f40",
       "source": "src/app.css"
     },
     {
       "route": "/app.js",
       "asset": "app.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 75645,
-      "sha256": "fecc8c1d14fd1ff2cf137a18b48ec608612fbaf211e2a3b34ecc44b47de75fbb",
+      "bytes": 174560,
+      "sha256": "e8a87eb7e08f1cd553bbd59b2b0293db0d325af968e651f977d3bc6bcd195ea2",
       "source": "src/app.js"
     },
     {
       "route": "/billing.js",
       "asset": "billing.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 9275,
-      "sha256": "a125c85860b22d24e6ec4e070c49f71bc92c26dccdbceadb2bfa4435403a2782",
+      "bytes": 9378,
+      "sha256": "0d2ef984c9a82674b04633571b4cfa5b8c7c863e4cd75405951fdf6615ba279b",
       "source": "src/billing.js"
     },
     {
       "route": "/config.js",
       "asset": "config.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 3417,
-      "sha256": "ae1e7148e34943807be95eda8905c6486449acac4dc4fe05b8090b2204cc3075",
+      "bytes": 4076,
+      "sha256": "1af17ad4146ce193a1f2dcad1a082c9150feec0543ece325c2518ba1e1073b82",
       "source": "src/config.js"
     },
     {
@@ -88,16 +89,16 @@
       "route": "/ingest.js",
       "asset": "ingest.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 11382,
-      "sha256": "7f0e1a983bcc25b246cd49bab932efdfb29a837612b62faa0930d56d09736051",
+      "bytes": 18254,
+      "sha256": "40f0236efff348daada15003cb7ebe73892a5d0a263553751cad116f5dd32a82",
       "source": "src/ingest.js"
     },
     {
       "route": "/licence.js",
       "asset": "licence.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 5459,
-      "sha256": "6b91792ce5d66cf69666e879ce4ea69b84c3160eccda775557a9865250162f39",
+      "bytes": 5560,
+      "sha256": "04fd0d3538c7cb53f45c4571e8466a534216673c3d79bbc1d0b2f2a895c90ff8",
       "source": "src/licence.js"
     },
     {
@@ -112,80 +113,80 @@
       "route": "/meter.js",
       "asset": "meter.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 8314,
-      "sha256": "eff87fd0b7dc7b14344a3d8d5dfe3df46a23726415206fc949e95009238b2786",
+      "bytes": 9600,
+      "sha256": "89b33abc2f8f559a77051b947d1b110eb32d96fbf543dcf43f437395e6d4f56e",
       "source": "src/meter.js"
     },
     {
       "route": "/native-bridge.js",
       "asset": "native-bridge.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 20823,
-      "sha256": "ecb41b09bec68f3b49f1f28aff15f2d96ca1630ae2b46a616715551ebdadf7b6",
+      "bytes": 22991,
+      "sha256": "ec3d8b46d590f8c4c56f6d8807531adb3375b15e4ba2e7915429347bda66270b",
       "source": "src/native-bridge.js"
     },
     {
       "route": "/privacy",
       "asset": "privacy.html",
       "type": "text/html; charset=utf-8",
-      "bytes": 6257,
-      "sha256": "e34938602b42750766f272831c53841729b0f0fcfc8e52c9e92d60681becd183",
+      "bytes": 6230,
+      "sha256": "08272d6329e29c230820ea3e5585bc5dacbe25437d2086e18454691d1f286fac",
       "source": "src/privacy.html"
     },
     {
       "route": "/reader-core.css",
       "asset": "reader-core.css",
       "type": "text/css; charset=utf-8",
-      "bytes": 1656,
-      "sha256": "5ae01128a9ea4c66953e0d01d4f3ececa3b7242cd157aea7ab239d18a133fcb2",
+      "bytes": 2082,
+      "sha256": "af7a6a00e4b19948897d6e1b50b97e031ef8ed4758e909a0b0a3bc7f287ab450",
       "source": "VENDOR_READER/reader-core.css"
     },
     {
       "route": "/reader-core.js",
       "asset": "reader-core.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 15013,
-      "sha256": "df494ccb05235615d4533195a2cb30c04ceac69a714e40af50596c0b365b3712",
+      "bytes": 43806,
+      "sha256": "f4c3a9f9e4cbc8301d887b82ecdf2952fcbffcec633a28b59a5f27df8e49f0ad",
       "source": "VENDOR_READER/reader-core.js"
     },
     {
       "route": "/releases",
       "asset": "releases.html",
       "type": "text/html; charset=utf-8",
-      "bytes": 13488,
-      "sha256": "1f053fedfa6a9c968988f92bc99523a19500223ca3338cc05439ce1f40ce615a",
+      "bytes": 16048,
+      "sha256": "bd6661d55186adf258b0894d6252c8755a5e622177fb9f708a3f0ea913da4a6f",
       "source": "src/releases.html"
     },
     {
       "route": "/retrieval.js",
       "asset": "retrieval.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 19259,
-      "sha256": "a4096a70575668549da31e5d34dc7be4c6872861c4fbbbc57fb45bdc8c8f6572",
+      "bytes": 19362,
+      "sha256": "0c22ce8f4fc69523a32e89da9653be5545398ef55375ce6b7fba8e661f9421c9",
       "source": "src/retrieval.js"
     },
     {
       "route": "/selfmodel.js",
       "asset": "selfmodel.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 11139,
-      "sha256": "f830cdad1fa261eba8f919c273621e0faf3fcf13b4989a8eb03083b7363e56d2",
+      "bytes": 11232,
+      "sha256": "e9de3deffeb1b0d65c96dd2f9e4da3a1e68bbc6f2c96a38f6ca823bcc33278a0",
       "source": "src/selfmodel.js"
     },
     {
       "route": "/speaker.js",
       "asset": "speaker.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 10506,
-      "sha256": "ee11958458cf30195119ce3fe42d6a3eaf613617e0f7b8968be14ed22c0022f2",
+      "bytes": 10851,
+      "sha256": "0833b06dad915c9124707aa514365c7376146de17862bab293ee2198cf38a40a",
       "source": "src/speaker.js"
     },
     {
       "route": "/sw.js",
       "asset": "sw.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 3620,
-      "sha256": "c47afde2ca982429dbf6110a6e3cdea85a5b1341271479fd99956c801a5fccd0",
+      "bytes": 4361,
+      "sha256": "df7777644ae6f3a638eabfff9cb26d31557e2f20bd8df57831a5a9fde9de0f4e",
       "source": "src/sw.js"
     },
     {
@@ -232,10 +233,10 @@
       "route": "/voicepack.js",
       "asset": "voicepack.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 36492,
-      "sha256": "e4dfa6933474f50c7215a72e8539959a9def047946d3f0b3ad2fbce5d3752c80",
+      "bytes": 44434,
+      "sha256": "63aa308fb648a31820a6c24a542abc0065714d3bb6950bf1750aa396e38a1a1b",
       "source": "src/voicepack.js"
     }
   ],
-  "total_bytes": 2792136
+  "total_bytes": 2949196
 }
