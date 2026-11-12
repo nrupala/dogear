@@ -62,6 +62,7 @@ ROUTES = {
     "/": ("src/index.html", "text/html; charset=utf-8"),
     "/privacy": ("src/privacy.html", "text/html; charset=utf-8"),
     "/releases": ("src/releases.html", "text/html; charset=utf-8"),
+    "/licences": ("src/licences.html", "text/html; charset=utf-8"),
     "/app.js": ("src/app.js", "text/javascript; charset=utf-8"),
     "/config.js": ("src/config.js", "text/javascript; charset=utf-8"),
     "/meter.js": ("src/meter.js", "text/javascript; charset=utf-8"),

@@ -1,7 +1,7 @@
 {
  "worker": "dogear-app",
- "worker_sha256": "135fd8cb289d8014be4de33bc0f43fc77b14a0fd131336b4e3af5673f925c758",
- "shell_cache": "dogear-app-shell-eba76bdab50a",
+ "worker_sha256": "2f2612047b199b94b53a877a06dadfc9987f88400aa89044f706b46364cc7ded",
+ "shell_cache": "dogear-app-shell-f9e223a769d5",
  "web_version": "1.7.0",
  "variant": "routes-only",
  "entries": [
@@ -9,8 +9,8 @@
    "route": "/",
    "asset": "index.html",
    "type": "text/html; charset=utf-8",
-   "bytes": 25785,
-   "sha256": "b7d0750d76bb53013dbfed93483e950ff472040bf1da058458665eaf23baa8bb",
+   "bytes": 25894,
+   "sha256": "5f60e9b9d75127775a1912574e4f6627fbd4fca325211639989006f5a1783d7f",
    "source": "src/index.html"
   },
   {
@@ -129,8 +129,8 @@
    "route": "/privacy",
    "asset": "privacy.html",
    "type": "text/html; charset=utf-8",
-   "bytes": 7028,
-   "sha256": "2c9076659b060024c781f6702cab145d1eed3f25908fff5785111ab2358a64e8",
+   "bytes": 6865,
+   "sha256": "cbb784a45c969685f004d7cad8e5f4d533199cea3f2cfcd0f2881ae94627d9b7",
    "source": "src/privacy.html"
   },
   {
@@ -153,9 +153,17 @@
    "route": "/releases",
    "asset": "releases.html",
    "type": "text/html; charset=utf-8",
-   "bytes": 16034,
-   "sha256": "90f086b309a236be81e2a19844e2a212d19ad3940a3be847d02928e60655fed3",
+   "bytes": 15871,
+   "sha256": "7b962ff00cbcdaee7e5aa6e6249dadbc75b0093fc6fde54ce9b60f00fcd840d3",
    "source": "src/releases.html"
+  },
+  {
+   "route": "/licences",
+   "asset": "licences.html",
+   "type": "text/html; charset=utf-8",
+   "source": "src/licences.html",
+   "bytes": 3468,
+   "sha256": "4208b4958177308205a95f10fa520eaff8be1c616d8f5924156fd85d90018ce8"
   },
   {
    "route": "/retrieval.js",
@@ -185,8 +193,8 @@
    "route": "/sw.js",
    "asset": "sw.js",
    "type": "text/javascript; charset=utf-8",
-   "bytes": 4378,
-   "sha256": "1060124f7f2c3a20e7750d3d261b8fb4155b8850730568f30484e731b9fd45ee",
+   "bytes": 4393,
+   "sha256": "3d1116b2e11471a7ce0c1017b8f38ce7bb15770124aec312de3cc461a3dbbd9d",
    "source": "src/sw.js"
   },
   {
@@ -254,5 +262,5 @@
    "source": "src/voicepack.js"
   }
  ],
- "total_bytes": 3021725
+ "total_bytes": 3024991
 }
