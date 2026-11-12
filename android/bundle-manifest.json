@@ -1,7 +1,7 @@
 {
   "worker": "dogear-app",
-  "worker_sha256": "9bf278c140137e5ac6da48cb86dab7b0b162fa5227e4c63b46c3fb010f0322c7",
-  "shell_cache": "dogear-app-shell-d3a87588b0ac",
+  "worker_sha256": "ba497c58d7e05506b3173e5d6dd76432fd3ef6c9acc208967fe178c681b0d559",
+  "shell_cache": "dogear-app-shell-643fa4037b6f",
   "web_version": "1.7.0",
   "variant": "routes-only",
   "entries": [
@@ -33,8 +33,8 @@
       "route": "/app.js",
       "asset": "app.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 210234,
-      "sha256": "32cf0943464a9a760da5000bc39e9fb22a64a76bf3aacd879c4b2ff6d65b44ff",
+      "bytes": 211809,
+      "sha256": "ab062c2cac308da2a57b676dd2c8147c6721596c289dd2b380bf4eb0a784ba64",
       "source": "src/app.js"
     },
     {
@@ -186,7 +186,7 @@
       "asset": "sw.js",
       "type": "text/javascript; charset=utf-8",
       "bytes": 4378,
-      "sha256": "a3ff6cd3636f37427de022c116496fafb67520d4606e7ddadd94c21de24811eb",
+      "sha256": "9b9aad9c892a00b4ef13bb5cf246ac7ea2cfdc82d91a94c18edb88427cb1a795",
       "source": "src/sw.js"
     },
     {
@@ -254,5 +254,5 @@
       "source": "src/voicepack.js"
     }
   ],
-  "total_bytes": 3016107
+  "total_bytes": 3017682
 }
