@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<!--
+SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DogEar — hear your documents</title>
+<meta name="description" content="DogEar reads your documents aloud. Free, no account, and your documents stay on this device.">
+<meta name="theme-color" content="#081322">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="/reader-core.css">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">
+    <img src="/icons/icon-192.png" alt="" width="34" height="34">
+    <span>DogEar</span>
+  </a>
+  <nav>
+    <a href="/privacy">Privacy</a>
+    <a href="/releases">Release log</a>
+    <button id="aboutBtn" class="navbtn" type="button">About</button>
+    <button id="installBtn" class="install" type="button" hidden>Install app</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ============ home ============ -->
+  <section id="homeView">
+    <h1>Hear your documents.</h1>
+    <p class="lede">DogEar reads articles, notes and documents aloud, in your
+      browser, and keeps your place — so you can pick up right where you
+      stopped, on this device.</p>
+    <p class="cost"><strong>Free — 1 hour of listening every day.</strong>
+      No account. Your documents stay on this device. Listening beyond
+      that is a single one-time unlock, never a subscription.</p>
+
+    <p id="speechWarn" class="warn" role="alert" hidden>
+      <strong>This browser can&rsquo;t read aloud.</strong> It has no speech
+      voice built in, so DogEar can show your documents but not speak them.
+      Try Chrome, Edge, Firefox or Safari on this device — all of them can
+      read aloud.
+    </p>
+
+    <button id="addBtn" class="primary" type="button">Add your document</button>
+
+    <section id="addPanel" class="panel" hidden aria-label="Add a document">
+      <div class="tabs" role="tablist" aria-label="Ways to add">
+        <button type="button" class="tab on" data-tab="paste" role="tab">Paste text</button>
+        <button type="button" class="tab" data-tab="upload" role="tab">Upload a file</button>
+        <button type="button" class="tab" data-tab="link" role="tab">From a link</button>
+      </div>
+
+      <div class="tabpane" data-pane="paste">
+        <label>Title
+          <input id="pasteTitle" type="text" maxlength="120" placeholder="What is this document?">
+        </label>
+        <label>Text
+          <textarea id="pasteText" rows="8" placeholder="Paste the text here&hellip;"></textarea>
+        </label>
+        <button id="pasteAdd" class="primary" type="button">Add this document</button>
+        <p class="msg" id="pasteMsg" role="status"></p>
+      </div>
+
+      <div class="tabpane" data-pane="upload" hidden>
+        <p>Choose a file from this device. <strong>.txt</strong> and
+          <strong>.md</strong> files are free. <strong>PDF</strong>,
+          <strong>EPUB</strong>, <strong>Word (.docx)</strong> and
+          <strong>.html</strong> files need a DogEar licence (below).
+          Either way, the file never leaves your device — DogEar reads
+          it right here in your browser.</p>
+        <p>There is no size limit in DogEar: big books are welcome.
+          The real limits are the free space on this device for the
+          words in the file, and the time it takes to read them out
+          of it. A large file loads in parts — you can start
+          listening to the first part while the rest is still
+          loading.</p>
+        <input id="fileInput" type="file" accept=".txt,.md,.markdown,.html,.htm,.pdf,.epub,.docx,text/plain,text/html,application/pdf,application/epub+zip,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+        <p class="msg" id="uploadMsg" role="status"></p>
+
+        <div class="licence" id="licenceBox">
+          <p id="licenceState">PDF, EPUB, Word and HTML files need a
+            DogEar licence. Paste your licence key once — it is checked
+            and kept only on this device.</p>
+          <div id="licenceForm">
+            <label>Licence key
+              <input id="licenceInput" type="text" autocomplete="off"
+                spellcheck="false" placeholder="Paste your licence key">
+            </label>
+            <button id="licenceApply" class="ghost" type="button">Use this key</button>
+          </div>
+          <button id="licenceRemove" class="ghost danger" type="button" hidden>Remove licence from this device</button>
+          <p class="msg" id="licenceMsg" role="status"></p>
+        </div>
+      </div>
+
+      <div class="tabpane" data-pane="link" hidden>
+        <label>Page address (https)
+          <input id="urlInput" type="url" inputmode="url" placeholder="https://example.com/article">
+        </label>
+        <button id="urlFetch" class="primary" type="button">Fetch the page</button>
+        <p class="msg" id="urlMsg" role="status"></p>
+        <p class="fine">This is the only time DogEar uses the network: our
+          server fetches the page once, takes the readable text, and forgets
+          the rest. See <a href="/privacy">Privacy</a>.</p>
+      </div>
+    </section>
+
+    <section id="planBox" class="panel" aria-label="Your listening plan">
+      <p id="planState">Your plan: 1 hour of listening free every day.</p>
+      <button id="unlockBtn" class="primary" type="button" hidden>Unlock DogEar — one payment of US$24.99</button>
+      <p id="planWebNote" class="fine" hidden>The one-time unlock is sold
+        inside the DogEar app on Google Play. If you have a licence key,
+        enter it here — it unlocks this web version the same way,
+        unlimited listening included.</p>
+      <p class="msg" id="planMsg" role="status"></p>
+      <div id="tipBox" hidden>
+        <p class="fine">DogEar is a small, independent app. If it earns
+          its keep for you, a tip helps it keep being built — entirely
+          optional, and it changes nothing about your listening.</p>
+        <div id="tipButtons" class="tiprow"></div>
+        <a id="tipStripe" class="ghost" href="#" target="_blank" rel="noopener" hidden>Leave a tip by card</a>
+        <p class="msg" id="tipMsg" role="status"></p>
+      </div>
+    </section>
+
+    <section id="library" aria-label="Your documents">
+      <h2>Your documents, on this device</h2>
+      <p id="emptyLib">Nothing here yet. Add your first document with the button above.</p>
+      <ul id="docList" class="docs"></ul>
+    </section>
+
+    <section id="manageSheet" class="panel" aria-label="Manage document" hidden>
+      <h2 class="paneltitle" id="manageTitle"></h2>
+      <p id="manageDetails" class="fine"></p>
+      <p id="manageNotesLine" class="fine"></p>
+      <div class="btnrow">
+        <button id="manageOpenBtn" class="ghost" type="button" title="Open this document" aria-label="Open this document">Open</button>
+        <button id="manageNotesBtn" class="ghost" type="button" title="Go to this document's notes" aria-label="Go to this document's notes">Notes</button>
+        <button id="manageRemoveBtn" class="ghost danger" type="button" title="Remove this document from DogEar" aria-label="Remove this document from DogEar">Remove</button>
+        <button id="manageCloseBtn" class="ghost" type="button" title="Close" aria-label="Close">Close</button>
+      </div>
+    </section>
+
+    <div id="nowBar" hidden>
+      <button id="nowBarTitle" class="nowtitle" type="button" title="Back to the listening view" aria-label="Back to the listening view">Now listening</button>
+      <button id="nowBarToggle" class="ghost" type="button" title="Pause the reading" aria-label="Pause the reading">Pause</button>
+      <button id="nowBarStop" class="ghost" type="button" title="Stop the reading" aria-label="Stop the reading">Stop</button>
+    </div>
+
+    <section id="notesHome" class="panel" aria-label="Your notes">
+      <h2 class="paneltitle">Your notes</h2>
+      <p class="fine">The concepts you discussed with DogEar, each
+        with its key point and the passage it came from, in reading
+        order — made on this device. Nothing is uploaded.</p>
+      <p id="notesHomeCount" class="fine" role="status"></p>
+      <ul id="notesHomeList" class="docs"></ul>
+      <div class="btnrow">
+        <button id="notesHomeDocx" class="ghost" type="button">Word (.docx)</button>
+        <button id="notesHomeMd" class="ghost" type="button">Markdown</button>
+        <button id="notesHomeTxt" class="ghost" type="button">Plain text</button>
+        <button id="notesHomeHtml" class="ghost" type="button">Web page (HTML)</button>
+        <button id="notesHomeClear" class="ghost danger" type="button">Clear all notes</button>
+      </div>
+    </section>
+  </section>
+
+  <!-- ============ reading ============ -->
+  <section id="readView" hidden>
+    <button id="backBtn" class="ghost" type="button">&larr; Your documents</button>
+    <div class="viewbar" role="group" aria-label="Document view">
+      <button id="viewReadBtn" class="ghost" type="button" title="Reading view — the document first" aria-label="Reading view" aria-pressed="true">&#9776; Read</button>
+      <button id="viewListenBtn" class="ghost" type="button" title="Listening view — the player first" aria-label="Listening view" aria-pressed="false">&#128266; Listen</button>
+      <button id="docSheetBtn" class="ghost" type="button" title="Contents, marks and notes for this document" aria-label="This document — contents, marks and notes" aria-expanded="false">This document</button>
+    </div>
+    <section id="docSheet" class="panel" aria-label="This document" hidden>
+      <h2 class="paneltitle">This document</h2>
+      <h3>Contents — tap to go there</h3>
+      <ul id="sheetContents" class="docs"></ul>
+      <h3>Marks &amp; bookmarks</h3>
+      <ul id="sheetMarks" class="docs"></ul>
+      <h3>Notes about this document</h3>
+      <ul id="sheetNotes" class="docs"></ul>
+    </section>
+    <h1 id="docTitle"></h1>
+    <p id="speechWarnRead" class="warn" role="alert" hidden>
+      <strong>This browser can&rsquo;t read aloud.</strong> It has no speech
+      voice built in, so you can read the text below but DogEar can&rsquo;t
+      speak it. Try Chrome, Edge, Firefox or Safari on this device.
+    </p>
+    <div id="capNotice" class="warn" role="alert" hidden>
+      <strong>You&rsquo;ve used today&rsquo;s free hour.</strong>
+      This document is yours — read it on screen as long as you like,
+      and everything in your library stays exactly where it is.
+      Listening to new documents starts again tomorrow, or right
+      away with the one-time unlock.
+      <button id="capUnlockBtn" class="primary" type="button" hidden>Unlock DogEar — one payment of US$24.99</button>
+      <p class="msg" id="capMsg" role="status"></p>
+    </div>
+    <p id="skipNotice" class="warn" role="alert" hidden>
+      DogEar&rsquo;s voice couldn&rsquo;t say that part, so it was
+      skipped. Reading continues with the next part.</p>
+    <div id="importState" class="warn" role="status" hidden>
+      <span id="importStateText"></span>
+      <div class="btnrow">
+        <button id="resumeImportBtn" class="primary" type="button">Finish loading — pick the same file</button>
+      </div>
+      <input id="resumeFileInput" type="file" hidden
+        accept=".txt,.md,.markdown,.html,.htm,.pdf,.epub,.docx,text/plain,text/html,application/pdf,application/epub+zip,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+      <p class="msg" id="importMsg" role="status"></p>
+    </div>
+    <div id="readerMount"></div>
+    <section id="voicePickBox" class="panel" aria-label="Reading voice">
+      <h2 class="paneltitle">Reading voice</h2>
+      <label class="fine" for="voicePick">Voice
+        <select id="voicePick"></select>
+      </label>
+      <p id="voicePickNote" class="fine">DogEar&rsquo;s own voice
+        leads. Voices from the phone&rsquo;s other speech engines
+        can be added here; your choice is remembered on this
+        device, and switching voice keeps your place.</p>
+      <div class="voicefx" role="group" aria-label="Voice sound settings">
+        <label class="fine" for="fxSpeed">Speaking speed
+          <select id="fxSpeed" aria-label="Speaking speed"
+            title="How fast DogEar speaks — reading and answers"></select>
+        </label>
+        <label class="fine" for="fxPitch">Voice pitch
+          <input id="fxPitch" type="range" min="0.5" max="1.5" step="0.05"
+            aria-label="Voice pitch"
+            title="Higher or lower voice — device voices, answers">
+          <span id="fxPitchVal" class="fxval"></span>
+        </label>
+        <p class="fine">Pitch works on this device&rsquo;s voices
+          when DogEar answers you. DogEar&rsquo;s own voices have
+          no pitch setting in their engine, so pitch does not
+          change them.</p>
+        <label class="fine" for="fxVolume">Volume
+          <input id="fxVolume" type="range" min="0" max="200" step="5"
+            aria-label="Volume"
+            title="Listening volume — above 100% is a boost for DogEar's own voices">
+          <span id="fxVolumeVal" class="fxval"></span>
+        </label>
+        <p class="fine">Above 100% is a boost, and a boost only
+          works with DogEar&rsquo;s own voices — this device&rsquo;s
+          voices are spoken by the phone itself and stop at
+          100%.</p>
+        <label class="fine" for="fxWarmth">Warmth (depth)
+          <input id="fxWarmth" type="range" min="0" max="100" step="5"
+            aria-label="Warmth (depth)"
+            title="A deeper, fuller sound — DogEar's own voices only">
+          <span id="fxWarmthVal" class="fxval"></span>
+        </label>
+        <p class="fine">Warmth deepens DogEar&rsquo;s own voices.
+          The device voices cannot be deepened from here.</p>
+      </div>
+      <p id="placePin" class="fine" role="status"></p>
+      <div class="btnrow">
+        <button id="readSelectionBtn" class="ghost" type="button">Read this only</button>
+      </div>
+      <p class="fine">Select some text in the document first,
+        then tap Read this only to hear just that part.</p>
+      <p class="msg" id="rangeMsg" role="status"></p>
+    </section>
+    <p id="nativeState" class="fine" role="status" hidden></p>
+    <div id="battNotice" class="warn" role="alert" hidden>
+      <strong>Some phones stop background reading.</strong>
+      If your phone ever stops DogEar when the screen is off or the
+      app is tucked away, tell the phone to leave DogEar running
+      &mdash; one tap opens the battery setting for DogEar.
+      <div class="btnrow">
+        <button id="battAllowBtn" class="primary" type="button">Keep DogEar running</button>
+        <button id="battDismissBtn" class="ghost" type="button">Not now</button>
+      </div>
+    </div>
+    <section id="voiceBox" class="panel" aria-label="Talk to DogEar" hidden>
+      <h2 class="paneltitle">Talk to DogEar</h2>
+      <p id="voiceState"></p>
+      <button id="voiceUnlockBtn" class="primary" type="button" title="Go to the unlock" aria-label="Unlock DogEar to use Talk" hidden>Unlock DogEar to use Talk</button>
+      <div id="voiceModels"></div>
+      <p id="voiceStorage" class="fine" hidden></p>
+      <div class="btnrow">
+        <button id="voiceTalkBtn" class="primary" type="button" hidden>Talk to DogEar</button>
+      </div>
+      <progress id="voiceProgress" max="100" value="0" hidden></progress>
+      <p class="msg" id="voiceMsg" role="status"></p>
+      <p id="voiceHeard" class="fine" hidden></p>
+      <p id="voiceAnswer" hidden></p>
+      <div id="brainBox" hidden>
+        <h3 class="paneltitle">Your own answer model (optional)</h3>
+        <p class="fine">By default DogEar answers questions by
+          quoting your document — no key, no account, nothing
+          leaves this device. If you have your own model service,
+          enter its address and your key instead: answers are
+          then written in its words, from the passages DogEar
+          finds in your document. Your key stays on this device
+          and is sent only to the address you enter. The passages
+          DogEar answers from are sent to that address too.</p>
+        <label class="fine">Model service address
+          <input id="brainEndpoint" type="url" autocomplete="off"
+            placeholder="https://example.com/v1/chat/completions">
+        </label>
+        <label class="fine">Your key
+          <input id="brainKey" type="password" autocomplete="off">
+        </label>
+        <label class="fine">Model name
+          <input id="brainModel" type="text" autocomplete="off"
+            placeholder="model name">
+        </label>
+        <div class="btnrow">
+          <button id="brainSave" class="ghost" type="button">Save</button>
+          <button id="brainClear" class="ghost" type="button">Remove</button>
+        </div>
+        <p class="msg" id="brainMsg" role="status"></p>
+      </div>
+      <div id="convBox">
+        <h3>Save this conversation</h3>
+        <p class="fine">Your questions and DogEar&rsquo;s answers,
+          with the passage each one was about. The record stays on
+          this device until you save it out &mdash; nothing is
+          uploaded.</p>
+        <div class="btnrow">
+          <button id="convToggle" class="ghost" type="button"
+            aria-pressed="true">Save this conversation: On</button>
+        </div>
+        <p id="convCount" class="fine" role="status"></p>
+        <div class="btnrow">
+          <button id="convDocx" class="ghost" type="button">Word (.docx)</button>
+          <button id="convMd" class="ghost" type="button">Markdown</button>
+          <button id="convTxt" class="ghost" type="button">Plain text</button>
+          <button id="convHtml" class="ghost" type="button">Web page (HTML)</button>
+          <button id="convClear" class="ghost" type="button">Clear</button>
+        </div>
+      </div>
+      <div id="notesBox">
+        <h3>Notes from this conversation</h3>
+        <p class="fine">The concepts you discussed with DogEar,
+          each with the passage it came from, in reading order —
+          made into notes on this device. Nothing is uploaded.</p>
+        <p id="notesCount" class="fine" role="status"></p>
+        <div class="btnrow">
+          <button id="notesDocx" class="ghost" type="button">Word (.docx)</button>
+          <button id="notesMd" class="ghost" type="button">Markdown</button>
+          <button id="notesTxt" class="ghost" type="button">Plain text</button>
+          <button id="notesHtml" class="ghost" type="button">Web page (HTML)</button>
+        </div>
+      </div>
+    </section>
+    <article id="docBody"></article>
+    <section id="marksBox" class="panel" aria-label="Your marks in this document" hidden>
+      <h2 class="paneltitle">Bookmarks, notes &amp; tags</h2>
+      <p id="marksState" class="fine" hidden></p>
+      <ul id="marksList" class="docs"></ul>
+      <p class="fine">Made from the player bar while you listen; tap one to jump there.</p>
+    </section>
+    <p class="danger-row">
+      <button id="removeDocBtn" class="ghost danger" type="button">Remove from DogEar</button>
+    </p>
+  </section>
+
+  <!-- ============ about ============ -->
+  <section id="aboutView" hidden>
+    <button id="aboutBackBtn" class="ghost" type="button">&larr; Your documents</button>
+    <h1>About DogEar</h1>
+    <p class="lede">DogEar reads your documents aloud — articles, notes,
+      books, files — in your device&rsquo;s own voices, and keeps your
+      place so you can pick up where you stopped. It is built by
+      2351485 ALBERTA INC., a small independent maker.</p>
+
+    <h2>How DogEar is paid for</h2>
+    <p>Every day includes <strong>1 hour of listening free</strong>
+      (60 minutes). Listening is counted by the document, not the
+      clock: hearing a passage again costs nothing, and a document
+      you have started can always be finished — DogEar never stops
+      in the middle. Beyond the free hour, one payment of
+      <strong>US$24.99</strong> unlocks unlimited listening for good.
+      There is no subscription and there never will be. A DogEar
+      licence key, if you have one, unlocks this device the same way.</p>
+    <p id="aboutPlanState"></p>
+
+    <h2>Your documents and privacy</h2>
+    <p>There is no DogEar account. Your documents and your place in
+      them live only on this device, and nothing about your reading
+      is tracked. The full story is on the <a href="/privacy">Privacy</a>
+      page.</p>
+
+    <h2>Two-way voice (your choice of model, an optional download)</h2>
+    <p>If you unlock DogEar, you can also talk to it. Speech
+      recognition needs a model, and <strong>you pick which
+      one</strong>: the reading screen offers a shelf of Whisper
+      models — Tiny, Base, Small, Medium and Large — each shown
+      with its size before you download anything. Pick a model and
+      it downloads once, together with the shared runtime that
+      runs it, and then works <em>on this device</em>. Nothing is
+      bundled with the app. Each model carries <strong>its own
+      licence</strong>, shown on the shelf before download, and
+      the model you choose is the one that runs. With a model in
+      place you can talk to the reader — pause, resume, go back —
+      and ask questions about the document you have open. Answers
+      are read straight from the document&rsquo;s own words; DogEar
+      does not make answers up, and if the document doesn&rsquo;t
+      answer a question, it says so. Your voice is recognized on
+      this device and is <strong>never uploaded</strong> — there
+      is no transcription service behind it. A downloaded model
+      stays on this device, works without a connection, and can be
+      removed from the reading screen at any time; you can keep
+      more than one and switch between them.</p>
+    <p id="aboutVoiceState" class="fine"></p>
+
+    <h2>Ask for an improvement</h2>
+    <p>Tell us what to fix or add. Requests people send shape what
+      DogEar becomes next, and we read every one. Sending a request
+      is the one time the app sends something you typed to us:
+      exactly the words below, kept so we can read them. Nothing
+      else travels with it — no document, no reading history.</p>
+    <div class="tabpane">
+      <label>Your request
+        <textarea id="reqText" rows="5" maxlength="2000" placeholder="What should DogEar do better?"></textarea>
+      </label>
+      <label>How to reach you (optional)
+        <input id="reqContact" type="text" maxlength="200" placeholder="Email, if you would like an answer">
+      </label>
+    </div>
+    <button id="reqSend" class="primary" type="button">Send this request</button>
+    <p class="msg" id="reqMsg" role="status"></p>
+
+    <h2>Report a problem</h2>
+    <p>Something broken? Tell us here. Pressing send files your
+      report as an issue in DogEar&rsquo;s issue list, where we
+      work through them — and this page answers with the issue
+      number, so you can see it was filed. The report carries
+      exactly what is listed under &ldquo;What will be sent&rdquo;
+      below: your words, and nothing else — no document, no
+      conversation, no reading history. Nothing is sent until
+      you press the button.</p>
+    <div class="tabpane">
+      <label>What happened
+        <textarea id="repWhat" rows="5" maxlength="2000" placeholder="What went wrong?"></textarea>
+      </label>
+      <label>What you expected (optional)
+        <textarea id="repExpected" rows="3" maxlength="1000" placeholder="What should have happened instead?"></textarea>
+      </label>
+      <label>Your email, if you want a reply (optional)
+        <input id="repEmail" type="email" maxlength="200" placeholder="you@example.com">
+      </label>
+    </div>
+    <p class="fine">What will be sent: the words above, plus
+      &ldquo;Product: DogEar&rdquo;, app version
+      <span id="repVersion">—</span>, and surface
+      &ldquo;<span id="repSurface">—</span>&rdquo;. That is the
+      whole report.</p>
+    <button id="repSend" class="primary" type="button">Send this report</button>
+    <p class="msg" id="repMsg" role="status"></p>
+
+    <p class="fine">DogEar web app, app version <span id="appVersion">—</span> ·
+      reading engine reader-core <span id="engineVersion">—</span></p>
+  </section>
+</main>
+
+<footer>
+  <p>DogEar is free for 1 hour of listening a day. Documents and
+    reading places are kept only in this browser, on this device —
+    there is no DogEar account and nothing is uploaded. (The one
+    exception: if you send an improvement request or a problem
+    report from the About page, the words you type there are sent
+    to us, and the page says so before you send.)</p>
+  <p>Owned by <a href="https://nrupalakolkar.com" target="_blank" rel="noopener">Nrupal Akolkar</a> ·
+    Built with <a href="https://muse.ai/join" target="_blank" rel="noopener">Muse by Meta</a>.</p>
+</footer>
+
+<script src="/reader-core.js"></script>
+<script src="/native-bridge.js"></script>
+<script src="/vendor/nacl.min.js"></script>
+<script src="/licence.js"></script>
+<script src="/ingest.js"></script>
+<script src="/config.js"></script>
+<script src="/meter.js"></script>
+<script src="/billing.js"></script>
+<script src="/retrieval.js"></script>
+<script src="/voicepack.js"></script>
+<script src="/voicefx.js"></script>
+<script src="/ttspack.js"></script>
+<script src="/speaker.js"></script>
+<script src="/selfmodel.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
