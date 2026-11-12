@@ -60,7 +60,7 @@ android {
         applicationId "app.getdogear"
         minSdkVersion 24
         targetSdkVersion 36
-        versionCode 10
+        versionCode 11
         versionName "1.7.0"
 
         // The name for the application
