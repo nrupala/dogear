@@ -9,7 +9,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.net.Uri;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
@@ -85,16 +84,9 @@ public class DogEarJsBridge {
             @Override
             public void run() {
                 try {
-                    Intent i = new Intent(
-                            Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                    i.setData(Uri.parse("package:" + appContext.getPackageName()));
-                    a.startActivity(i);
-                } catch (Exception e) {
-                    try {
-                        a.startActivity(new Intent(
-                                Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
-                    } catch (Exception ignored) {}
-                }
+                    a.startActivity(new Intent(
+                            Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
+                } catch (Exception ignored) {}
             }
         });
     }

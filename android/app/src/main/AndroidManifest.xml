@@ -33,7 +33,7 @@
         <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
         <!-- Talk: the voice pack listens through the WebView's mic
              capture (granted per-origin in MainActivity). The audio
-             is transcribed on-device by the bundled Whisper pack;
+             is transcribed on-device by the downloaded Whisper pack;
              nothing is recorded to storage or uploaded. -->
         <uses-permission android:name="android.permission.RECORD_AUDIO"/>
         <!-- Chromium's WebView capture path (cr_media) refuses to
@@ -54,7 +54,6 @@
              once, with the reason stated — to exempt DogEar; it
              never asks silently and playback works without it on
              stock Android (proven in the emulator legs). -->
-        <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     
 
     
