@@ -43,6 +43,15 @@
              no user prompt. Found on the owner's phone, proven on
              the bench 2026-10-22 (diag A/B). -->
         <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+        <!-- Play Billing: the unlock, the subscription and the
+             tips are bought in the app through Google Play
+             Billing (the web side reaches it via the Digital
+             Goods API). Play also requires this permission in
+             an uploaded build before the console will offer
+             product creation at all — found at the console
+             2026-11-12: the patch-9 AAB did not carry it, so no
+             products could be created against it. -->
+        <uses-permission android:name="com.android.vending.BILLING"/>
 
         <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
         <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
