@@ -20,7 +20,7 @@
 
 package app.getdogear;
 
-
+import com.google.androidbrowserhelper.playbilling.digitalgoods.DigitalGoodsRequestHandler;
 
 public class DelegationService extends
         com.google.androidbrowserhelper.trusted.DelegationService {
@@ -28,7 +28,9 @@ public class DelegationService extends
     public void onCreate() {
         super.onCreate();
 
-        
+        // Play Billing (2026-11-12): serve the web layer's Digital
+        // Goods API calls through Play Billing Library 8.
+        registerExtraCommandHandler(new DigitalGoodsRequestHandler(getApplicationContext()));
     }
 }
 

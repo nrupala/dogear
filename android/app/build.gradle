@@ -60,7 +60,7 @@ android {
         applicationId "app.getdogear"
         minSdkVersion 24
         targetSdkVersion 36
-        versionCode 8
+        versionCode 9
         versionName "1.7.0"
 
         // The name for the application
@@ -219,6 +219,12 @@ dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
 
         implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.7.4'
+
+    // Play Billing for the Digital Goods API (added 2026-11-12):
+    // the browser-helper playbilling library wraps Play Billing
+    // Library 8.3.0 — the console requires PBL 8.0.0+ to publish
+    // any release; without it the bundle reads as legacy AIDL.
+    implementation 'com.google.androidbrowserhelper:billing:1.2.0'
 
     // Background playback (v1.1.0): the native SpeechService builds its
     // media notification with NotificationCompat/MediaStyle and holds a
