@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<!--
+SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Release log — DogEar</title>
+<meta name="description" content="What was built and shipped in the DogEar web app, and the state of its release checks.">
+<meta name="theme-color" content="#081322">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">
+    <img src="/icons/icon-192.png" alt="" width="34" height="34">
+    <span>DogEar</span>
+  </a>
+  <nav>
+    <a href="/">The app</a>
+    <a href="/privacy">Privacy</a>
+  </nav>
+</header>
+<main>
+  <h1>Release log</h1>
+  <p class="lede">Every build of this app, what changed, and where its
+    release checks stand. We publish the state of a build honestly —
+    including while checks are still running.</p>
+
+  <article>
+    <h2>2026-11-07 — move around while you listen (web 1.7.0)</h2>
+    <p><strong>Status: released.</strong> This build adds
+      paragraph navigation to the reader; it went live on the
+      web on 2026-11-10, and the Android app follows through
+      Google Play from 2026-11-12.</p>
+    <p><strong>Start where you point.</strong> Every paragraph
+      now carries plain buttons — <strong>Read from here</strong>
+      and <strong>Read this only</strong> — and the reader
+      controls gain previous/next paragraph buttons and a
+      progress bar you can drag: let go and reading resumes at
+      the nearest part. The spoken paragraph is highlighted and
+      kept in view as reading moves. Your place is shown as a
+      paragraph ("Your place: paragraph 4 of 12") and you can
+      move the pin before you resume.</p>
+    <p><strong>Your choice of reading voice.</strong> A voice
+      picker on the reading screen lists DogEar's own chosen
+      voice first, then your system default and the other
+      voices on this device; your choice is remembered, and
+      switching voice mid-document keeps your place.</p>
+    <p><strong>Talk starts warm.</strong> When a voice model is
+      on this device, the speech engine now starts in the
+      background, so tapping Talk begins listening at once
+      instead of waiting for the model to load. And on the
+      reading screen, under <strong>Talk to DogEar</strong>, you
+      can optionally name <strong>your own</strong>
+      answer model (an endpoint and key of yours): questions
+      are then answered in composed words from the passages
+      DogEar finds, instead of a quotation. Your key stays on
+      this device and is sent only to the endpoint you name.
+      Without it, answers stay quotations from the document,
+      exactly as before.</p>
+    <p><strong>The free hour is now daily.</strong> The free
+      plan&rsquo;s allowance is <strong>1 hour of listening
+      every day</strong>, resetting at midnight — it was 10
+      hours a month until today (2026-11-07). A daily hour
+      matches how DogEar is actually used now that you can
+      talk with it: a companion you return to every day gets
+      a daily allowance. The counting is unchanged — by the
+      document, not the clock, re-listening free, a document
+      you have started can always be finished — and the
+      one-time unlock still removes the limit for good.</p>
+  </article>
+
+  <article>
+    <h2>2026-10-24 — the voice learns to finish (the 1.1.0 release, web 1.6.0 — in development)</h2>
+    <p><strong>Status: in development.</strong>
+      This build is being built and exercised as the DogEar
+      1.1.0 release; it is not a web release yet, and web
+      readers stay on the current build until it is approved.</p>
+    <p><strong>The app talks about itself, finishes what it
+      starts saying, and explains its failures.</strong> Ask
+      DogEar what it is, what the buttons do, how Talk works,
+      about the voice models, or what the unlock includes, and it
+      answers from its own built-in description. Answers are now
+      spoken by a completing speaker: one piece at a time, each
+      confirmed finished, with anything the speech engine drops
+      recovered or honestly reported — never a silent stop
+      mid-sentence. And when listening fails, DogEar now says
+      why, in words, out loud: what happened and what to do
+      about it.</p>
+  </article>
+
+  <article>
+    <h2>2026-10-22 — the player becomes part of the app (1.5.0, Android beta.5)</h2>
+    <p><strong>Status: in testing (Android beta).</strong> This build
+      is being exercised as the Android beta.5 candidate; it is not
+      a web release. Web readers stay on 1.4.0 until this build is
+      approved.</p>
+    <p><strong>One player, owned by the app itself.</strong> The
+      owner&rsquo;s phone test of beta.4 found the Talk button and
+      the pause/stop controls unreliable exactly while the app was
+      speaking. The cause was structural: the controls lived in the
+      web page, on the same thread as the voice engine&rsquo;s work,
+      and playback state lived in three places at once. In this
+      build the Android app owns the player: a standing native
+      control bar (Pause, Stop, Talk, Continue, and Save place,
+      Bookmark, Favorite, Tag and Note — all usable while a document
+      is being read aloud), one native state machine every surface
+      (the bar, the lock screen, the page) commands, native
+      microphone capture that opens only after the voice has
+      stopped, and the reading place kept by the app itself, so
+      Continue resumes exactly where you stopped. The page remains
+      the library and the document; it reflects the player instead
+      of being the player. The one honest limit: the larger voice
+      models still wait for the stronger engine, exactly as 1.4.0
+      states.</p>
+  </article>
+
+  <article>
+    <h2>2026-10-22 — the phone fixes: microphone, controls, models (1.4.0)</h2>
+    <p><strong>Status: release candidate.</strong> This build is a
+      release candidate since 2026-10-22 — it ships as a release
+      candidate on deploy and graduates after a clean week under
+      watch, the same convention as the builds below.</p>
+    <p><strong>Four fixes from a real phone test.</strong> The
+      owner&rsquo;s own phone test of the Android beta found four
+      defects; each was pinned to its cause before it was fixed.
+      <strong>The microphone now opens</strong> in the Android app —
+      a missing system permission meant Talk could never start, and
+      the error message wrongly blamed the listener&rsquo;s own
+      permission setting; error messages now name their real cause.
+      <strong>The top row of controls is tappable again</strong> —
+      it had been painted under the phone&rsquo;s status bar, where
+      taps never reached it. <strong>Voice models the in-app engine
+      cannot safely run are no longer offered</strong> for download:
+      the larger models downloaded fully and then could never load;
+      the shelf now says so plainly instead, and they return when
+      the stronger engine lands. And <strong>the reader offers a
+      one-time battery exemption</strong>, because some phones put
+      the app to sleep and stop background reading; background
+      reading itself is re-proven on the shipped package —
+      minimized and with the screen off, the place keeps
+      advancing.</p>
+  </article>
+
+  <article>
+    <h2>2026-10-22 — voice models become a choice (1.3.0)</h2>
+    <p><strong>Status: release candidate.</strong> This build is a
+      release candidate since 2026-10-22 — it ships as a release
+      candidate on deploy and graduates after a clean week under
+      watch, the same convention as the builds below.</p>
+    <p><strong>Your choice of voice model.</strong> Two-way voice
+      no longer comes as one fixed model. The reading screen now
+      offers a shelf of speech-recognition models — <strong>Tiny,
+      Base, Small, Medium and Large</strong> — and you pick the one
+      you want. Each model is shown with its <strong>size and its
+      own licence before download</strong>; nothing is bundled
+      with the app, and the shared runtime that runs the models
+      downloads once, alongside the first model you choose. You
+      can keep more than one model on the device, switch which one
+      is in use, and remove any of them from the same shelf.
+      Speech is still recognized entirely on your device, your
+      voice is never uploaded, and answers to questions are still
+      quotations from your document&rsquo;s own words — only the
+      choice is new; reading, the listening plan and everything
+      else are unchanged.</p>
+    <p><strong>One-time re-download.</strong> If you had the
+      earlier (v1) voice pack on this device, the pack&rsquo;s
+      cache format has changed, so the old copy is cleared on
+      upgrade and the picker offers a fresh download of whichever
+      model you choose. That download happens once, as before.</p>
+  </article>
+
+  <article>
+    <h2>2026-10-22 — the listening plan, document files, and two-way voice</h2>
+    <p><strong>Status: release candidate.</strong> This build is a
+      release candidate since 2026-10-22 — it graduates on
+      2026-10-29 after a clean week under watch. Gate verdict:
+      <strong>PASS WITH FINDINGS</strong> (our release gate; the
+      findings and the checks still outstanding are recorded with
+      the verdict, not hidden).</p>
+    <p><strong>The listening plan.</strong> DogEar now carries the
+      plan the Play Store release will carry: <strong>1 hour of
+      listening free every day</strong> (the allowance was
+      monthly when this entry was written; it became daily on
+      2026-11-07 — see the newest entry), counted by the document —
+      hearing a passage again costs nothing, a document you have
+      started can always be finished, and nothing you brought is
+      ever locked away. Beyond the free hours, a <strong>one-time
+      unlock</strong> (US$24.99 in the Play app; no subscription,
+      ever) removes the limit, and the voice pack below is included
+      in it — not a separate charge. A licence key lifts the limit
+      on a device the same way. The listening count is kept on your
+      device only. This build also adds an About page with a tip box
+      and a form for asking us to fix or add something — requests
+      people send shape what gets built next.</p>
+    <p><strong>Document files.</strong> File reading beyond plain
+      text: <strong>PDF</strong>, <strong>EPUB</strong> e-books,
+      <strong>Word (.docx)</strong> and <strong>HTML</strong> files
+      can be added the same way .txt and .md files always could. The
+      reading tools are carried inside the app itself and files are
+      opened on your device — nothing is uploaded for conversion.
+      Those document formats are unlocked by the unlock or a DogEar
+      licence key, which you paste once; the app checks the
+      key&rsquo;s signature itself, on your device. Paste, links,
+      .txt and .md stay free and unchanged, and the reading engine
+      is the same pinned reader-core as before.</p>
+    <p><strong>Two-way voice.</strong> The optional <strong>voice
+      pack</strong>: a speech-recognition model (Whisper base,
+      English, about 109 MB) that an unlocked device can download
+      once, from inside the app, and that then runs <strong>entirely
+      on the device</strong>. With it, you can talk to the reader —
+      pause, resume, go back, start over — and ask questions about
+      the document you have open. Answers are read aloud straight
+      from the document&rsquo;s own words: DogEar quotes, it does
+      not make answers up, and when the document doesn&rsquo;t
+      answer a question it says so. No audio is uploaded, ever;
+      there is no transcription service. The pack can be removed
+      from the same place it was downloaded, and without it the app
+      is exactly the app it was before.</p>
+    <p><strong>Android pairing.</strong> This build also carries the
+      bridge the Android app (v1.1.0 beta) uses to keep reading
+      while the app is minimized or the screen is off — the two
+      halves are live together from this build.</p>
+  </article>
+
+  <article>
+    <h2>2026-10-16 — the speech fix, second round</h2>
+    <p>The gate re-checked the fix described below in a real browser
+      and the silence was still there — so that fix was not good
+      enough, and we say so here. Instrumenting a real browser showed
+      why: with no working voice, every sentence errors within
+      milliseconds, the reader races through the whole document
+      without speaking, and the failure is over before any timer can
+      catch it. This build watches for speech itself — a sentence
+      actually starting and finishing — instead of trusting the
+      browser&rsquo;s &ldquo;speaking&rdquo; flag: if listening
+      produces no real speech, playback stops at once, your place is
+      restored to exactly where you pressed Listen, and the warning
+      appears. The check was proven in a real speechless browser,
+      not only in simulated tests. The gate re-checks this build
+      before its verdict can change.</p>
+  </article>
+
+  <article>
+    <h2>2026-10-16 — gate results, and a speech fix</h2>
+    <p>Our release gate has checked the three parts of this launch.
+      Its verdicts, in its own terms:</p>
+    <ul>
+      <li><strong>reader-core v0.2.0</strong> (the reading engine) —
+        PASS WITH FINDINGS.</li>
+      <li><strong>This web app</strong> — BLOCKED at the gate on a
+        silent speech failure, described below. Fix in loop; re-gate
+        to follow.</li>
+      <li><strong>The installable app (PWA)</strong> — PASS WITH
+        FINDINGS; install and offline proofs outstanding.</li>
+    </ul>
+    <p>The block: in a browser that offers the speech feature but has
+      no working voice, pressing Listen produced no sound and no
+      warning — it failed silently. This build fixes that: if your
+      browser has no usable voice, the app says so up front, in both
+      the library and the reading view; and if a Listen press produces
+      no speech within about two seconds, playback stops and the
+      warning appears instead of silence. The link importer also now
+      refuses two more spellings of private network addresses that it
+      previously left to the platform to refuse, and a broken link in
+      the app&rsquo;s footer is fixed. The gate re-checks this build
+      before its verdict can change.</p>
+  </article>
+
+  <article>
+    <h2>2026-10-16 — the web app, first build</h2>
+    <p><strong>Status: release candidate.</strong> This build is live and in
+      its one-week candidate window under review by our release gate.
+      Gate verdicts: <em>recorded in the entry above.</em></p>
+    <ul>
+      <li>The DogEar web app: add a document by pasting text, uploading a
+        .txt/.md/.html file, or fetching a public https link; hear it read
+        aloud; your place is kept on this device and offered as a resume
+        point when you return.</li>
+      <li>Installable as an app (PWA): add it to your home screen and it
+        opens and reads your saved documents offline.</li>
+      <li>Reading engine: reader-core v0.2.0, pinned. That engine release
+        carries the place-keeping, parser-order and bare-text fixes the
+        site embed earned in production, and prefers on-device voices.</li>
+      <li>Free. No account. Documents stay on the device (see
+        <a href="/privacy">Privacy</a>).</li>
+    </ul>
+  </article>
+</main>
+<footer>
+  <p>Owned by <a href="https://nrupalakolkar.com" target="_blank" rel="noopener">Nrupal Akolkar</a> ·
+    Built with <a href="https://muse.ai/join" target="_blank" rel="noopener">Muse by Meta</a>.</p>
+</footer>
+</body>
+</html>

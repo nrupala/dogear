@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<!--
+SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy — DogEar</title>
+<meta name="description" content="How DogEar handles your documents: they stay on your device. No account, no tracking — the only things that ever leave are a link you ask us to fetch and a request you choose to send.">
+<meta name="theme-color" content="#081322">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/">
+    <img src="/icons/icon-192.png" alt="" width="34" height="34">
+    <span>DogEar</span>
+  </a>
+  <nav>
+    <a href="/">The app</a>
+    <a href="/releases">Release log</a>
+  </nav>
+</header>
+<main>
+  <h1>Privacy, in plain words</h1>
+  <p class="lede">DogEar was built so there is almost nothing to promise:
+    your documents never reach us in the first place.</p>
+
+  <h2>Your documents stay on this device</h2>
+  <p>Documents you paste or upload are kept in this browser&rsquo;s local
+    storage, on this device only. They are not uploaded, not synced, and
+    not backed up anywhere by DogEar. If you clear your browser&rsquo;s
+    site data, or remove a document in the app, it is gone.</p>
+  <p>That includes PDF, EPUB and Word files: they are opened and read by
+    tools built into the app itself, right here on your device — the file
+    is never sent anywhere to be converted. A DogEar licence key, if you
+    use one, is likewise checked by the app on this device and kept only
+    here; checking it makes no network call.</p>
+  <p>Things are kept <strong>per device and per browser</strong>. A document
+    you add here does not appear on your other devices — there is no DogEar
+    account to sign in with.</p>
+
+  <h2>The one network exception: fetching a link</h2>
+  <p>When — and only when — you use <em>From a link</em>, our server fetches
+    that page once, extracts the readable text, and returns it to your
+    browser. The fetched page is processed in memory and is not stored.
+    Like any web request, the fetch itself passes through our hosting
+    provider&rsquo;s standard edge logs (time, address requested, response
+    code); we do not build profiles from it and there are no analytics or
+    trackers in this app.</p>
+
+  <h2>The second exception: an improvement request you choose to send</h2>
+  <p>The About page has a form for asking us to fix or add something.
+    If — and only if — you write a request there and press Send, the
+    words you typed (and an email address, if you add one so we can
+    answer) are sent to us and stored so we can read them. Nothing
+    else travels with it: no document, no reading history, no
+    identifier for you or your device beyond what our hosting
+    provider&rsquo;s standard edge logs record for any web request,
+    as above. If you never use the form, nothing is ever sent.</p>
+
+  <h2>The third exception: a problem report you choose to send</h2>
+  <p>The About page also has a &ldquo;Report a problem&rdquo; form.
+    If — and only if — you write a report there and press Send, the
+    words you typed are filed as an issue in DogEar&rsquo;s issue
+    list, together with the product name, the app version, and
+    whether you are on the web app or the Android app — the form
+    lists exactly that before you send, and the app answers with
+    the issue number. An email address travels only if you add one
+    so we can answer. Nothing else goes with it: no document, no
+    conversation, no reading history. If you never use the form,
+    nothing is ever sent, and the app sends nothing on its own —
+    there is no automatic error reporting and no telemetry.</p>
+
+  <h2>Purchases in the Play app</h2>
+  <p>In the Google Play app, the one-time unlock and tips are sold by
+    Google Play; Google handles the payment and tells the app the
+    purchase happened. The app keeps the fact of the unlock on your
+    device, and may present the purchase receipt to our server to be
+    checked — the receipt names the product bought, nothing about
+    your documents or reading. Listening is counted on your device
+    only (the app keeps a daily total there so the free hour can
+    be applied); that count is never sent anywhere.</p>
+
+  <h2>Two-way voice and the voice models</h2>
+  <p>If you unlock DogEar, you can choose to download an optional
+    <strong>voice model</strong> — speech-recognition models are
+    offered as a choice (Tiny, Base, Small, Medium, Large), each
+    one a download <strong>you</strong> pick, under that
+    model&rsquo;s own licence, which is named on the shelf before
+    you download it. Nothing is bundled with the app. A model
+    downloads once from us, as data files, together with the
+    shared runtime that runs it; nothing about you travels with
+    that download beyond the request itself, and the size is shown
+    before you fetch it. From then on, when you tap Talk and
+    speak, your voice is recognized <strong>on this device, by
+    the model on this device</strong>: the recording exists only
+    in the device&rsquo;s memory until it has been turned into
+    words, no audio is uploaded, and there is no transcription
+    service anywhere in the design — we could not listen to you if
+    we wanted to. Voice commands steer the reader on the device,
+    and answers to questions about your document are quotations
+    from that document, found on the device — your questions and
+    documents are not uploaded for answering either. Each model
+    can be removed from the reading screen at any time, which
+    deletes that model&rsquo;s files from this device; reading
+    works exactly as it did before any model arrived.</p>
+
+  <h2>Voices</h2>
+  <p>Reading aloud uses your browser&rsquo;s speech voices. DogEar prefers
+    voices that live on your device. Some browsers also offer network
+    voices, which send the text being read to the browser maker&rsquo;s
+    servers to produce the speech — that is your browser&rsquo;s doing, and
+    your browser&rsquo;s voice settings decide which voices exist. If
+    keeping text fully on-device matters for a document, pick an on-device
+    voice in your browser or system settings.</p>
+
+  <h2>What we do not do</h2>
+  <p>No accounts. No advertising. No analytics or tracking in this app. No
+    selling or sharing of anything — there is nothing of yours here to
+    share.</p>
+
+  <h2>Questions</h2>
+  <p>DogEar is a product of 2351485 ALBERTA INC. Reach us at
+    <a href="mailto:info@aimlds.org">info@aimlds.org</a>.</p>
+</main>
+<footer>
+  <p>Owned by <a href="https://nrupalakolkar.com" target="_blank" rel="noopener">Nrupal Akolkar</a> ·
+    Built with <a href="https://muse.ai/join" target="_blank" rel="noopener">Muse by Meta</a>.</p>
+</footer>
+</body>
+</html>

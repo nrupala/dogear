@@ -1,0 +1,177 @@
+/*
+ * SPDX-FileCopyrightText: 2026 2351485 ALBERTA INC.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+/* DogEar web app — Ether skin, matching the embed reader.
+   Deep indigo surfaces, aquamarine accent, soft off-white type. */
+:root{
+  --bg:#081322; --panel:#0b1c33; --ink:#e9f2f1; --dim:rgba(190,225,220,.62);
+  --accent:#6ff2dc; --ring:rgba(111,242,220,.4); --track:rgba(111,242,220,.15);
+  --warn-bg:#3a2408; --warn-ring:#e8a33d; --danger:#ff9d8a;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  line-height:1.55;
+}
+a{color:var(--accent)}
+.top{
+  display:flex; align-items:center; justify-content:space-between; gap:1rem;
+  padding:.7rem 1rem; border-bottom:1px solid var(--ring);
+  position:sticky; top:0; background:var(--bg); z-index:5;
+}
+.brand{display:flex; align-items:center; gap:.55rem; color:var(--ink);
+  text-decoration:none; font-weight:800; font-size:1.15rem}
+.brand img{border-radius:8px}
+.top nav{display:flex; align-items:center; gap:1rem; font-size:.95rem}
+.top nav a{text-decoration:none; border-bottom:1px dotted var(--ring)}
+.navbtn{
+  font:inherit; color:var(--accent); background:transparent; border:0;
+  border-bottom:1px dotted var(--ring); padding:0; cursor:pointer;
+}
+.tiprow{display:flex; gap:.5rem; flex-wrap:wrap; margin:.4rem 0}
+#capNotice .primary{display:block; margin-top:.7rem}
+#aboutView h2{font-size:1.25rem; margin:1.3rem 0 .4rem}
+.install{
+  font:inherit; font-weight:700; color:#042a28; background:var(--accent);
+  border:0; border-radius:999px; padding:.4rem .95rem; cursor:pointer;
+}
+main{max-width:44rem; margin:0 auto; padding:1.2rem 1rem 2.5rem}
+h1{font-size:2rem; line-height:1.15; margin:.6rem 0 .6rem}
+.lede{font-size:1.1rem; color:var(--ink)}
+.cost{color:var(--dim)}
+.primary{
+  font:inherit; font-size:1.05rem; font-weight:700; color:#042a28;
+  background:var(--accent); border:0; border-radius:999px;
+  padding:.7rem 1.5rem; cursor:pointer; margin:.6rem 0;
+}
+.primary:hover{filter:brightness(1.07)}
+.primary:active,.ghost:active,.tab:active{filter:brightness(1.15)}
+.primary:disabled{opacity:.5; cursor:wait}
+/* Focus must be VISIBLE (beta.6 finish pass): a keyboard or
+   switch user who cannot see focus cannot use the app. */
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.ghost{
+  font:inherit; color:var(--accent); background:transparent;
+  border:1px solid var(--ring); border-radius:999px; padding:.45rem .95rem; cursor:pointer;
+  min-height:2.75rem; display:inline-flex; align-items:center; justify-content:center;
+}
+.warn{
+  background:var(--warn-bg); border:1px solid var(--warn-ring); color:#ffe1ae;
+  border-radius:12px; padding:.8rem 1rem; margin:1rem 0;
+}
+.panel{
+  background:var(--panel); border:1px solid var(--ring); border-radius:14px;
+  padding:1rem; margin:1rem 0 1.4rem;
+}
+.paneltitle{font-size:1.05rem; margin:.1rem 0 .6rem; letter-spacing:.01em}
+/* The voice panel's own hierarchy (beta.6 finish pass): the
+   state line is a state line (quiet, small); the ANSWER is the
+   product speaking — it gets a card: larger type, inset
+   surface, accent edge, room to breathe. What you said stays a
+   quiet echo above it. */
+#voiceState{color:var(--dim); font-size:.95rem; margin:.2rem 0 .6rem}
+#voiceAnswer{
+  background:var(--bg); border:1px solid var(--ring);
+  border-left:3px solid var(--accent); border-radius:10px;
+  padding:.8rem .95rem; margin:.7rem 0 .2rem;
+  font-size:1.08rem; line-height:1.65;
+}
+#voiceProgress{accent-color:var(--accent); width:100%}
+.tabs{display:flex; gap:.4rem; flex-wrap:wrap; margin-bottom:.9rem}
+.tab{
+  font:inherit; color:var(--accent); background:transparent;
+  border:1px solid var(--ring); border-radius:999px; padding:.4rem .9rem; cursor:pointer;
+  min-height:2.75rem; display:inline-flex; align-items:center;
+}
+.tab.on{background:var(--accent); color:#042a28; font-weight:700}
+.tabpane label{display:block; margin:.7rem 0; font-weight:600}
+.tabpane input[type="text"], .tabpane input[type="url"], .tabpane textarea{
+  display:block; width:100%; margin-top:.3rem; font:inherit; font-weight:400;
+  color:var(--ink); background:var(--bg); border:1px solid var(--ring);
+  border-radius:10px; padding:.55rem .7rem;
+}
+.tabpane input[type="file"]{font:inherit; margin:.6rem 0}
+.licence{margin-top:1.1rem; border-top:1px solid var(--ring); padding-top:1rem}
+.licence label{font-weight:600}
+.licence .ghost{margin-top:.5rem}
+.msg{min-height:1.4em; color:var(--accent)}
+.msg.err{color:var(--danger)}
+.fine{color:var(--dim); font-size:.88rem}
+.voicefx{margin-top:.6rem}
+.voicefx label{display:block; margin:.45rem 0 .1rem}
+.voicefx input[type="range"]{vertical-align:middle; max-width:55%}
+.fxval{font-variant-numeric:tabular-nums; color:var(--dim); font-size:.88rem}
+.docs{list-style:none; margin:.6rem 0; padding:0}
+.docs li{
+  display:flex; align-items:center; gap:.8rem; justify-content:space-between;
+  background:var(--panel); border:1px solid var(--ring); border-radius:12px;
+  padding:.7rem .9rem; margin:.5rem 0;
+  cursor:pointer; /* the whole row opens the document (1.1.0 intuitiveness fix) */
+}
+.docs .t{font-weight:700}
+.docs .meta{color:var(--dim); font-size:.85rem}
+.chip{
+  font-size:.8rem; font-weight:700; color:#042a28; background:var(--accent);
+  border-radius:999px; padding:.15rem .6rem; white-space:nowrap;
+}
+.chip.plain{background:transparent; color:var(--dim); border:1px solid var(--ring)}
+#docBody{margin-top:1rem; font-size:1.05rem; line-height:1.7}
+#docBody p{margin:.8rem 0}
+#docBody h2{font-size:1.3rem; margin:1.2rem 0 .5rem}
+.danger-row{margin-top:2rem}
+.danger{color:var(--danger); border-color:rgba(255,157,138,.5)}
+footer{
+  max-width:44rem; margin:0 auto; padding:1rem 1rem 2.2rem;
+  color:var(--dim); font-size:.88rem; border-top:1px solid var(--ring);
+}
+.rc-sent.rc-reading{background:rgba(111,242,220,.16); border-radius:3px}
+@media (max-width:34rem){ h1{font-size:1.6rem} .top nav{gap:.6rem; font-size:.88rem} }
+/* 1.7.0 navigation + voice picker */
+.para-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin:.1rem 0 .9rem}
+.para-actions .ghost{font-size:.82rem;padding:.3rem .6rem}
+/* No-voice state (Gate 28 walk fix): the paragraph read controls
+   sit visibly quiet — still tappable, so a tap can answer — and
+   the tap's answer lands in the tapped row, under the buttons. */
+#docBody.no-voice .para-actions .ghost{opacity:.45;cursor:not-allowed}
+.para-novoice-note{flex-basis:100%;color:var(--danger);font-size:.88rem}
+#voicePick{font:inherit;max-width:100%}
+.rc-para-reading{background:rgba(111,242,220,.08);border-radius:4px}
+#brainBox{margin-top:1rem;border-top:1px solid var(--ring);padding-top:.6rem}
+#convBox{margin-top:1rem;border-top:1px solid var(--ring);padding-top:.6rem}
+#brainBox label{display:block;margin:.45rem 0}
+#brainBox input{display:block;width:100%;box-sizing:border-box;margin-top:.2rem}
+/* Clarity pass (items 6–10): library actions, view switch,
+   listening arrangement, sheets, Now-listening bar. */
+.doc-actions{display:flex;gap:.4rem;flex-wrap:wrap;align-items:center}
+.viewbar{display:flex;gap:.5rem;flex-wrap:wrap;margin:.6rem 0}
+.viewbar .ghost[aria-pressed="true"]{background:var(--accent);color:#042a28;border-color:transparent;font-weight:700}
+#nowBar{
+  position:sticky;bottom:0;display:flex;gap:.5rem;align-items:center;
+  background:var(--panel);border:1px solid var(--ring);border-radius:.8rem;
+  padding:.5rem .6rem;margin-top:1rem;
+}
+#nowBar .nowtitle{
+  font:inherit;font-weight:700;color:var(--ink);background:transparent;
+  border:none;padding:.3rem .2rem;cursor:pointer;text-align:left;flex:1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+#docSheet h3{margin:.9rem 0 .3rem;font-size:1rem}
+#docSheet .sheet-empty{color:var(--dim)}
+#docSheet .sheet-go{white-space:normal;text-align:left}
+#sheetNotes li{display:flex;gap:.6rem;align-items:flex-start;justify-content:space-between}
+#manageSheet .btnrow{margin-top:.6rem}
+/* Listening view (item 8): player-first arrangement of the same
+   controls — the text and marks step back, the transport grows. */
+#readView.view-listen #docBody,#readView.view-listen #marksBox{display:none}
+#readView.view-listen .rc-play{
+  font-size:1.35rem;padding:1rem 1.6rem;border-radius:1rem;width:100%;
+}
+#readView.view-listen .rc-prev,#readView.view-listen .rc-next,
+#readView.view-listen .rc-stop{font-size:1.05rem;padding:.8rem 1.1rem}
+#readView.view-listen .rc-seek{width:100%;height:2rem}
+#readView.view-listen .rc-pos{font-size:1.05rem}
