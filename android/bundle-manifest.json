@@ -1,7 +1,7 @@
 {
   "worker": "dogear-app",
-  "worker_sha256": "a192a477d16bc919b2426e6695e9e034da78a66d43634420cc6bea9a36995548",
-  "shell_cache": "dogear-app-shell-5c1a72a2a133",
+  "worker_sha256": "632c022caae9eaffaf74c90b0fdd0fb5e1fd8eb03735d83ee9a7144d2fe74b6a",
+  "shell_cache": "dogear-app-shell-e5c94530d036",
   "web_version": "1.7.0",
   "variant": "routes-only",
   "entries": [
@@ -9,8 +9,8 @@
       "route": "/",
       "asset": "index.html",
       "type": "text/html; charset=utf-8",
-      "bytes": 26704,
-      "sha256": "8c9f0ae8dd34b94645770b44f3529dc5448d8b09505697775e6482b36125a616",
+      "bytes": 26773,
+      "sha256": "5fb86ad760640bc3042b9afca97550bd319f8ee3b8068068a1cf65a57c397d3b",
       "source": "src/index.html"
     },
     {
@@ -25,16 +25,16 @@
       "route": "/app.css",
       "asset": "app.css",
       "type": "text/css; charset=utf-8",
-      "bytes": 8570,
-      "sha256": "b71b31041f95a700fc932e6bb61b09b86c119d8eeada7c8c6877a34aa0a4c099",
+      "bytes": 8634,
+      "sha256": "e8602dd52211076ff3b9f0bb02dc1e99f74dac36e29490cda8a04d0e83a5e950",
       "source": "src/app.css"
     },
     {
       "route": "/app.js",
       "asset": "app.js",
       "type": "text/javascript; charset=utf-8",
-      "bytes": 224093,
-      "sha256": "6adc9f2311e1ab765e911ec8597f4d060d3ab10c313a88430cb7288f4fce99e0",
+      "bytes": 235350,
+      "sha256": "5ba87aa991152570e2c1fe66d3f07da3ea2d304da92bf7b5053c6799408b764e",
       "source": "src/app.js"
     },
     {
@@ -194,7 +194,7 @@
       "asset": "sw.js",
       "type": "text/javascript; charset=utf-8",
       "bytes": 4393,
-      "sha256": "976414228b7d6cd9364e6a0389eff9917a91b1338f737d38e17efc030e13f506",
+      "sha256": "294aa1fae7a7388d6fd5aa78bf70be49d9d7827d89c612ca80f8d6fd8d5549b8",
       "source": "src/sw.js"
     },
     {
@@ -262,5 +262,5 @@
       "source": "src/voicepack.js"
     }
   ],
-  "total_bytes": 3038836
+  "total_bytes": 3050226
 }
