@@ -61,6 +61,7 @@ import urllib.request
 ROUTES = {
     "/": ("src/index.html", "text/html; charset=utf-8"),
     "/privacy": ("src/privacy.html", "text/html; charset=utf-8"),
+    "/terms": ("src/terms.html", "text/html; charset=utf-8"),
     "/releases": ("src/releases.html", "text/html; charset=utf-8"),
     "/licences": ("src/licences.html", "text/html; charset=utf-8"),
     "/app.js": ("src/app.js", "text/javascript; charset=utf-8"),
@@ -111,7 +112,7 @@ def asset_rel(route: str) -> str:
     """URL route -> path inside the assets/web tree."""
     if route == "/":
         return "index.html"
-    if route in ("/privacy", "/releases"):
+    if route in ("/privacy", "/releases", "/terms"):
         return route[1:] + ".html"
     return route[1:]
 
