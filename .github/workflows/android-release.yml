@@ -7,6 +7,14 @@ name: Android release
 # DogEar Android packages are built HERE, from source, never hand-assembled
 # locally. Push a version tag (v*) to cut a release, or run manually to get
 # signed artifacts from the run.
+#
+# Declare -> certify (declare-certify inbuilding, step 4 — PILOT on this
+# branch): the release is DECLARED by the gate job before anything is
+# built, the declaration record travels between jobs as a workflow
+# artifact, the certification job closes it against the build evidence,
+# and the publish job guards on the closed record — while the
+# declaration is OPEN, the release cannot be attached. Actions:
+# nrupala/platform-ci-scaffolding/declare-certify (pinned by commit).
 on:
   push:
     tags:
@@ -19,12 +27,57 @@ permissions:
   contents: read
 
 jobs:
+  declare:
+    name: Declare the release (gate)
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.gate.outputs.version }}
+      declaration-id: ${{ steps.declare.outputs.declaration-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The gate job's verdict. Pilot scope: the checks this job can
+      # honestly run from its own context (release identity — the tag,
+      # the commit it resolves to, the run recording them), plus the
+      # downstream gates the build job enforces before certification
+      # (bundle-manifest verification, signer identity assertion,
+      # bundletool validation). Wiring the full release-gate verdict
+      # into this file is the release-gate lane's follow-on.
+      - name: Gate checks + write the gate verdict
+        id: gate
+        run: |
+          set -eu
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME}"
+          else
+            VERSION="manual-$(echo "${GITHUB_SHA}" | cut -c1-7)"
+          fi
+          VERSION="$(echo "$VERSION" | tr '/' '-')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          {
+            echo "gate verdict: DECLARED (pilot wiring)"
+            echo "target: dogear"
+            echo "version: $VERSION"
+            echo "base: ${GITHUB_SHA}"
+            echo "ref: ${GITHUB_REF}"
+            echo "run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "identity checks: tag/commit recorded from the Actions context of this run"
+            echo "downstream gates (build job, before certify): bundle-manifest verification, signer identity assertion, bundletool validation"
+          } > gate-verdict.md
+          cat gate-verdict.md
+
+      - name: Declare the release
+        id: declare
+        uses: nrupala/platform-ci-scaffolding/declare-certify/declare@41666ef6f938c01e8422d7d7b595e6438724193d
+        with:
+          target: dogear
+          version: ${{ steps.gate.outputs.version }}
+          base: ${{ github.sha }}
+          gate-verdict: gate-verdict.md
+
   build:
-    permissions:
-      contents: write
-      # Build-provenance attestation (SLSA L2 via Sigstore) for release artifacts
-      id-token: write
-      attestations: write
+    name: Build
+    needs: declare
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -111,6 +164,18 @@ jobs:
             https://github.com/google/bundletool/releases/download/1.18.1/bundletool-all-1.18.1.jar
           java -jar "$RUNNER_TEMP/bundletool.jar" validate --bundle "$GITHUB_WORKSPACE/dogear.aab"
 
+      # The certification evidence: exactly what was built, by hash.
+      - name: Write the release evidence
+        working-directory: ${{ github.workspace }}
+        run: |
+          {
+            echo "target: dogear"
+            echo "version: ${{ needs.declare.outputs.version }}"
+            echo "base: ${GITHUB_SHA}"
+            sha256sum dogear.apk dogear.aab
+          } > release-evidence.txt
+          cat release-evidence.txt
+
       - name: Upload run artifacts
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -118,12 +183,52 @@ jobs:
           path: |
             dogear.apk
             dogear.aab
+            release-evidence.txt
 
-      - name: Attach to the GitHub release (tag builds)
-        if: startsWith(github.ref, 'refs/tags/')
+  certify:
+    name: Certify the release
+    needs: [declare, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the build artifacts (for the evidence file)
+        uses: actions/download-artifact@v7
+        with:
+          name: dogear-android
+
+      - name: Certify the release against the build evidence
+        uses: nrupala/platform-ci-scaffolding/declare-certify/certify@41666ef6f938c01e8422d7d7b595e6438724193d
+        with:
+          declaration-id: ${{ needs.declare.outputs.declaration-id }}
+          evidence: release-evidence.txt
+          note: "dogear android release ${{ needs.declare.outputs.version }}"
+
+  publish:
+    name: Publish to the GitHub release (tag builds)
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [declare, certify]
+    permissions:
+      contents: write
+      # Build-provenance attestation (SLSA L2 via Sigstore) for release artifacts
+      id-token: write
+      attestations: write
+    runs-on: ubuntu-latest
+    steps:
+      # The guard: downloads the CLOSED declaration record and fails
+      # this job while it is OPEN — the attach below is unreachable
+      # for an uncertified release.
+      - name: Guard — the declaration must be CLOSED
+        uses: nrupala/platform-ci-scaffolding/declare-certify/guard@41666ef6f938c01e8422d7d7b595e6438724193d
+        with:
+          declaration-id: ${{ needs.declare.outputs.declaration-id }}
+
+      - name: Download the build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: dogear-android
+
+      - name: Attach to the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        working-directory: ${{ github.workspace }}
         run: gh release upload "$GITHUB_REF_NAME" dogear.apk dogear.aab --clobber
 
       - name: Attest build provenance
