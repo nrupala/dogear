@@ -7,29 +7,17 @@ submits or changes anything. Read this first; the graph snapshot beside it
 (`snapshot.json`, `stats.json`) is the measured evidence.
 
 - **Repo:** nrupala/dogear (public)
-- **Commit profiled:** `481f5c5d99a212b017d9b728f42165f8be0dd512` (main, 2026-11-18)
-- **Engine:** codetopo 0.9.1 · index run 2026-11-18
-- **Graph:** 48 files walked · 0 failed · 16,465 nodes · 64,699 edges · audit chain valid (3 entries, head `53d50b71…06001`)
-- **Nodes by kind:** function 1,842 · method 4,315 · class 745 · module 48 · file 48 · variable 781 · doc 12 · external 8,672 · package 2
-- **Edges by kind:** calls 23,647 · reads 12,014 · defines 16,544 · contains 7,791 · writes 4,169 · inherits 509 · imports 25
+- **Commit profiled:** `6f715a9e675c6cf39bf6f7281399a8ca5ed6dedb` (main)
+- **Engine:** codetopo 0.9.1 + full-language program (engine built from codetopo main `d71509d1` — all sixteen program extractors merged) · index run 2026-11-19
+- **Graph:** 63 files walked · 0 failed · 17,095 nodes · 68,151 edges · audit chain valid (3 entries, head `042535b2…45ab`)
+- **Nodes by kind:** external 8,899 · method 4,537 · function 1,906 · variable 838 · class 766 · file 63 · module 63 · doc 13 · interface 8 · package 2
+- **Edges by kind:** calls 24,744 · defines 16,763 · reads 13,587 · contains 8,194 · writes 4,295 · inherits 510 · imports 51 · implements 7
 
 ## Coverage honesty
 
-Codetopo extracts Rust, TypeScript/JavaScript and Python, plus Markdown
-docs as Doc nodes. In this repo the extracted part is the JavaScript web
-core (the reader/bundled-app JS under `android/app/src/main/assets/web/`,
-`reader/`, `site/`, `extension/`), the 5 Python build/deploy tools, and
-12 Markdown files as Doc nodes only.
+**Re-profiled 2026-11-19** with the full-language engine (Codetopo extractor program, 2026-11-18 ruling): every language this repo is written in is now extracted at symbol level. First profile: 2026-11-18 (Codetopo 0.9.1).
 
-**Residual — not in the graph:** the Android shell is **Java** (13 files
-under `android/app/src/main/java/app/getdogear/` — `MainActivity`,
-`PlayerCore`, `SpeechService`, `DogEarJsBridge`, `LauncherActivity` and
-siblings, plus `PlayerCoreTest`). Codetopo 0.9.1 has no Java extractor, so
-none of those symbols appear in this graph. That Java residual is profiled
-here by name only and awaits its Stage-3 extractor under the Codetopo
-full-language program. HTML/CSS/XML/Gradle/properties files are likewise
-not parsed into the graph; read them directly.
-
+Codetopo now extracts every language in the full-language program (Rust, TypeScript/JavaScript, Python, Kotlin, C, Java, Go, Shell, C++, Swift, Ruby, R, Julia, C#, PHP, Scala, Haskell, Elixir, Lua), plus Markdown as Doc nodes. The JavaScript web core and the Python build/deploy tools are extracted as before, and the Android shell named as the residual in the first profile is now in the graph at full symbol level: the 13 Java files under `android/app/src/main/java/app/getdogear/` (`MainActivity`, `PlayerCore`, `SpeechService`, `DogEarJsBridge`, `LauncherActivity` and siblings, plus `PlayerCoreTest` — Java extractor, program PR #156). HTML/CSS/XML/Gradle/properties files are not parsed into the graph; read them directly.
 ## Topology
 
 One read-aloud reader shipped in three forms from this one repository
