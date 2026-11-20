@@ -75,12 +75,28 @@ public class PlayerCoreTest {
         }
     }
 
+    /** Poster fake: immediate posts run at once; delayed posts
+     *  (the capture deadline) are held until the test fires them,
+     *  so a wedged capture can be aged past its deadline on
+     *  demand. */
+    static final class FakePoster implements PlayerCore.Poster {
+        final List<Runnable> delayed = new ArrayList<Runnable>();
+        @Override public void post(Runnable r) { r.run(); }
+        @Override public void postDelayed(Runnable r, long delayMs) { delayed.add(r); }
+        void runDelayed() {
+            List<Runnable> rs = new ArrayList<Runnable>(delayed);
+            delayed.clear();
+            for (Runnable r : rs) r.run();
+        }
+    }
+
     private List<String> order;
     private FakeSpeech speech;
     private FakeCapture capture;
     private MemoryStorage storage;
     private MarksStore store;
     private RecordingListener listener;
+    private FakePoster poster;
     private PlayerCore core;
 
     @Before
@@ -91,10 +107,8 @@ public class PlayerCoreTest {
         storage = new MemoryStorage();
         store = new MarksStore(storage);
         listener = new RecordingListener();
-        core = new PlayerCore(store, capture,
-                new PlayerCore.Poster() {
-                    @Override public void post(Runnable r) { r.run(); }
-                },
+        poster = new FakePoster();
+        core = new PlayerCore(store, capture, poster,
                 new PlayerCore.Clock() {
                     @Override public long nowMs() { return 1700000000000L; }
                 });
@@ -316,5 +330,64 @@ public class PlayerCoreTest {
         MarksStore reloaded = new MarksStore(storage);
         assertEquals(13, reloaded.positionFor("doc1").optInt("chunk"));
         assertEquals(1, reloaded.marksFor("doc1").optJSONArray("notes").length());
+    }
+
+    // ------------------------------------------------------------------
+    // Build 15 — the hot-mic gates (Director's defect, 2026-11-20:
+    // the voice stopped early and the microphone stayed hot after
+    // the interaction ended). No microphone hold may outlive its
+    // warrant: the deadline force-stops a wedged capture, the
+    // permission retry cannot loop, and the stop verb lands in
+    // every state.
+    // ------------------------------------------------------------------
+
+    @Test
+    public void captureDeadlineForceStopsAWedgedCapture() {
+        core.talkStart(PlayerCore.Source.BAR);
+        assertEquals(PlayerCore.Voice.LISTENING, core.voice());
+        assertEquals(1, capture.starts);
+        // The capture never calls back (its thread wedged in the
+        // recorder): aging past the deadline must release the mic.
+        poster.runDelayed();
+        assertEquals(1, capture.stops);
+        assertEquals(PlayerCore.Voice.IDLE, core.voice());
+        List<JSONObject> errs = listener.eventsOfType("audioError");
+        assertEquals(1, errs.size());
+        assertEquals("error", errs.get(0).optString("class"));
+    }
+
+    @Test
+    public void captureDeadlineIsMootAfterNormalCompletion() {
+        core.talkStart(PlayerCore.Source.BAR);
+        capture.cb.onCaptured(new short[1600], 16000);
+        assertEquals(PlayerCore.Voice.IDLE, core.voice());
+        poster.runDelayed();
+        assertEquals(0, capture.stops);
+    }
+
+    @Test
+    public void permissionNeededRetryIsBounded() {
+        core.talkStart(PlayerCore.Source.BAR);
+        capture.cb.onCaptureError("permission-needed");
+        assertEquals(1, listener.micPrompts);
+        // The activity's automatic retry: a fresh talkStart whose
+        // capture reports the same class again. The core must NOT
+        // ask for a second retry — the blocked class is told.
+        core.talkStart(PlayerCore.Source.BAR);
+        capture.cb.onCaptureError("permission-needed");
+        assertEquals(1, listener.micPrompts);
+        List<JSONObject> errs = listener.eventsOfType("audioError");
+        assertEquals(1, errs.size());
+        assertEquals("permission", errs.get(0).optString("class"));
+        assertEquals(PlayerCore.Voice.IDLE, core.voice());
+    }
+
+    @Test
+    public void talkStopReachesTheRecorderInEveryState() {
+        // No capture has ever started (voice IDLE): the stop verb
+        // still reaches the recorder, so a state a surface missed
+        // cannot leave the microphone held.
+        core.talkStop();
+        assertEquals(1, capture.stops);
     }
 }

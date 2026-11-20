@@ -68,7 +68,14 @@ public final class PlayerCore {
         void stop();
     }
 
-    public interface Poster { void post(Runnable r); }
+    public interface Poster {
+        void post(Runnable r);
+        /** Delayed post on the same serialized queue (the main
+         *  looper in production). Used by the capture deadline:
+         *  a microphone hold must have a hard end even when the
+         *  capture thread itself wedges. */
+        void postDelayed(Runnable r, long delayMs);
+    }
     public interface Clock { long nowMs(); }
 
     /** Surfaces that reflect the machine: the activity (native bar
@@ -98,6 +105,24 @@ public final class PlayerCore {
      *  from a native surface: the page's post-capture flow decides
      *  resumption (a voice command may itself be "stop"). */
     private boolean captureSilencedPlayback = false;
+
+    /** Build 15 (Director's hot-mic defect, 2026-11-20): a capture
+     *  still LISTENING this long after it started is wedged by
+     *  definition — VoiceCapture's own cap is 20 s — so the core
+     *  force-stops it. The deadline is the guarantee that no
+     *  microphone hold outlives its warrant, whatever the capture
+     *  thread is doing. */
+    static final long CAPTURE_DEADLINE_MS = 30_000;
+    /** Generation of the live capture; a deadline or completion
+     *  for an older generation is a no-op. */
+    private int captureGen = 0;
+    /** Automatic permission retries already spent for the current
+     *  talkStart chain. The activity retries a "permission-needed"
+     *  result when its own check reads granted; if the capture's
+     *  check keeps disagreeing, an unbounded retry loop would
+     *  hold the microphone forever — so the chain gets ONE retry,
+     *  then the blocked class is the truth told to the page. */
+    private int permissionRetries = 0;
 
     public PlayerCore(MarksStore store, CapturePort capture, Poster poster, Clock clock) {
         this.store = store;
@@ -367,6 +392,15 @@ public final class PlayerCore {
             }
             voice = Voice.LISTENING;
             emitSnapshot();
+            /* permissionRetries is deliberately NOT reset here:
+               the activity's automatic retry arrives as an
+               ordinary talkStart, indistinguishable from a fresh
+               press — resetting here would refund the retry every
+               time and the bound in onCaptureDone could never
+               engage. The budget is refunded where a chain
+               genuinely ends: a capture that delivers audio, or
+               the blocked error finally told to the page. */
+            final int gen = ++captureGen;
             capture.start(new CapturePort.Callback() {
                 @Override public void onCaptured(short[] samples, int sampleRate) {
                     onCaptureDone(samples, sampleRate, null);
@@ -375,12 +409,34 @@ public final class PlayerCore {
                     onCaptureDone(null, 0, errorClass);
                 }
             });
+            /* The deadline (build 15): if this capture is still
+               LISTENING when it fires, the capture thread has
+               wedged (its own 20 s cap never reported back). Stop
+               the recorder from here, return the machine to IDLE,
+               and tell the page the honest error class — the
+               microphone is released by the core itself, not by
+               any surface noticing. */
+            poster.postDelayed(new Runnable() { @Override public void run() {
+                if (voice != Voice.LISTENING || gen != captureGen) return;
+                capture.stop();
+                voice = Voice.IDLE;
+                boolean resumeAfter = captureSilencedPlayback;
+                captureSilencedPlayback = false;
+                emitAudioError("error", resumeAfter);
+                emitSnapshot();
+            }}, CAPTURE_DEADLINE_MS);
         }});
     }
 
     public void talkStop() {
         poster.post(new Runnable() { @Override public void run() {
-            if (voice == Voice.LISTENING) capture.stop();
+            /* Unconditional (build 15): the stop verb reaches the
+               recorder in EVERY state, not only LISTENING — a
+               capture whose state has moved on, or whose state
+               report a surface missed, still holds the microphone.
+               VoiceCapture.stop() is a no-op when nothing is
+               recording, so an idle stop costs nothing. */
+            capture.stop();
         }});
     }
 
@@ -408,11 +464,26 @@ public final class PlayerCore {
                                final String errorClass) {
         poster.post(new Runnable() { @Override public void run() {
             if (voice == Voice.IDLE) return;
+            captureGen++; // this capture is done: its deadline is moot
             boolean resumeAfter = captureSilencedPlayback;
             captureSilencedPlayback = false;
             if (errorClass != null) {
                 voice = Voice.IDLE;
                 if ("permission-needed".equals(errorClass)) {
+                    if (permissionRetries >= 1) {
+                        /* The one automatic retry is spent and the
+                           capture still reports the permission
+                           missing: another retry would loop captures
+                           indefinitely (build 15 — the two permission
+                           checks disagreeing must never become a
+                           microphone held forever). The blocked class
+                           is the truth, and the page says it. */
+                        emitAudioError("permission", resumeAfter);
+                        permissionRetries = 0; // chain ended: next press starts fresh
+                        emitSnapshot();
+                        return;
+                    }
+                    permissionRetries++;
                     // The OS permission was never granted: this is
                     // a prompt, not a failure. The activity asks;
                     // on grant it retries talkStart, on denial it
@@ -429,6 +500,7 @@ public final class PlayerCore {
                 return;
             }
             voice = Voice.PROCESSING;
+            permissionRetries = 0; // a capture delivered: the chain ended well
             emitSnapshot();
             try {
                 // PCM16 little-endian, base64 — the page decodes to

@@ -85,9 +85,17 @@ public final class VoiceCapture implements PlayerCore.CapturePort {
     @Override
     public void stop() {
         capturing = false;
+        /* Take the recorder OUT first, then stop AND release it
+           (build 15): stop() alone does not unblock a read()
+           wedged in the audio HAL on every device — release()
+           does. The capture thread's own finally also stops and
+           releases its local reference; both calls are safe to
+           repeat, and whichever lands second is a no-op. */
         AudioRecord r = recorder;
+        recorder = null;
         if (r != null) {
             try { r.stop(); } catch (Exception ignored) {}
+            try { r.release(); } catch (Exception ignored) {}
         }
     }
 
