@@ -191,7 +191,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download the build artifacts (for the evidence file)
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dogear-android
 
@@ -222,7 +222,7 @@ jobs:
           declaration-id: ${{ needs.declare.outputs.declaration-id }}
 
       - name: Download the build artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: dogear-android
 
